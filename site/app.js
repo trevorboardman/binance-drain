@@ -619,7 +619,8 @@ function bandLabels(list) {
   bandSig = sig;
   $("bandNames").innerHTML = keep.map((b, i) => `<span data-i="${i}" style="left:${b.x.toFixed(1)}px;top:${b.y0.toFixed(1)}px;width:${b.w.toFixed(1)}px;height:${(b.y1 - b.y0).toFixed(1)}px"></span>`).join("");
   bandLabels.list = keep;
-  const top = Math.min(...keep.map(b => b.y0), ...keep.map(b => b.y1));
+  const ticks = TK && TK.layout && TK.layout.ticks || [];
+  const top = ticks.length ? Math.min(...ticks.map(t => t.y)) - 6 : Math.min(...keep.map(b => b.y0), ...keep.map(b => b.y1));
   if (isFinite(top)) {
     $("bandKey").style.top = Math.max(0, top).toFixed(0) + "px";
     $("bandKey").style.visibility = "visible";
@@ -957,6 +958,13 @@ const MILESTONES = [ {
   title: "{v} on Arbitrum is locked away",
   plain: "Moved out of the attacker's wallet by a transaction sent from Ethereum, the way Arbitrum's Security Council froze stolen funds in April.",
   tx: "arb 0x3e2b…32d5 → 0x…0da0, 8,426 ETH + 74.6M ARB · tx 0x410a…5f70, 0x75e8…edb6"
+}, {
+  at: "2026-10-30T02:25:00Z",
+  kind: "report",
+  title: "Binance: a hacked engineer's laptop",
+  plain: "Its first findings: the laptop let the attacker send withdrawals. No keys leaked.",
+  tx: "reported time (FinanceFeeds)",
+  reported: true
 }, {
   at: "2026-10-30T00:10:35Z",
   kind: "attack",
