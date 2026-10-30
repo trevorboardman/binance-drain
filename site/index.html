@@ -82,6 +82,12 @@ h1 .amt { color: var(--vault); font-stretch: 100%; font-variant-numeric: tabular
 .fig .s { display: none; }
 .ticks { position: absolute; inset: 0; pointer-events: none; }
 .band-names { position: absolute; inset: 0; pointer-events: none; }
+.vlabels { position: absolute; inset: 0; pointer-events: none; -webkit-user-select: none; user-select: none; }
+.vlabels span { position: absolute; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 0 3px #04050a, 0 0 3px #04050a; }
+.vlabels .vn { font: 600 9px/11px var(--mono); color: #cfd6e0; text-align: center; }
+.vlabels.narrow .vn { font-size: 8px; letter-spacing: -.05em; text-overflow: clip; }
+.vlabels .vr { font: 600 9.5px/12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--mute); }
+body.v-map .vlabels { display: none; }
 .band-names span { position: absolute; pointer-events: auto; -webkit-tap-highlight-color: transparent; }
 .scene canvas.gl, .ticks, .band-names, .figs { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .band-key { position: absolute; right: 22px; top: 0; visibility: hidden; background: var(--bg); padding: 2px 0 4px 8px; display: flex; flex-direction: column-reverse; gap: 5px; font: 500 10.5px/1.2 var(--mono); color: var(--mute); pointer-events: none; }
@@ -183,7 +189,7 @@ body:not(.v-map) .lane-names { display: none; }
   .deck .ctl .mode { gap: 9px; }
   .golive { padding-left: 10px; }
   .scene { min-height: 760px; height: 100svh; }
-  body:not(.v-map) .scene { min-height: 0; height: min(100svh, 700px); }
+  body:not(.v-map) .scene { min-height: 820px; height: 100svh; }
 }
 
 .page { max-width: 1240px; margin: 0 auto; padding-left: max(22px, env(safe-area-inset-left, 0px)); padding-right: max(22px, env(safe-area-inset-right, 0px)); }
@@ -220,6 +226,11 @@ section.block { padding-block: 64px 0; }
 h2 { font: 900 clamp(30px, 4vw, 52px)/.95 var(--wide); font-stretch: 115%; margin: 0 0 26px; letter-spacing: -.01em; text-wrap: balance; }
 .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--rule); }
 @media (min-width: 761px) and (max-width: 1180px) { h1 { max-width: calc(100% - min(360px, 40vw) - 28px); } }
+@media (min-width: 761px) {
+  .scene.note-left .note { left: 0; right: auto; top: var(--note-top, 460px); width: var(--note-w, 520px); }
+  .scene.note-left .note h3, .scene.note-left .note p, .scene.note-left .note .tx { text-align: left; }
+  .scene.note-left .note .n { justify-content: flex-start; }
+}
 @media (max-width: 1100px) { .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .steps { grid-template-columns: minmax(0, 1fr); } }
 .step { padding: 18px 22px 22px 0; min-width: 0; border-bottom: 1px solid var(--rule); }
@@ -334,6 +345,7 @@ body.og .head { top: 34px; }
   <div class="labels" id="labels"></div>
   <div class="lane-names" id="laneNames"></div>
   <div class="ticks" id="ticks"></div>
+  <div class="vlabels" id="vlabels"></div>
   <div class="band-names" id="bandNames"></div>
   <div class="band-key" id="bandKey" aria-label="Shades inside each column, bottom to top"></div>
   <div class="layer pad">
@@ -348,14 +360,14 @@ body.og .head { top: 34px; }
     <div class="head pad" id="head">
       <p class="kicker">Nine blockchains · <span class="long">Thursday </span>29 Oct<span class="long">ober</span> 2026</p>
       <h1><span class="amt" id="hOut">$6.2 billion</span> stolen from Binance</h1>
-      <p class="dek plain-only"><span class="tot-only">In one evening its own wallets paid an attacker on nine blockchains, most of it within 20 minutes. Each tank shows where it is now, and every drop of liquid is $1 million of it.</span><span class="map-only">Every dot <span class="dot-key"></span> is <b id="unitTxt">$1 million</b> of it.</span><a class="howlink" href="#how">How they did it ↓</a></p>
+      <p class="dek plain-only"><span class="tot-only">In one evening its own wallets paid an attacker on nine blockchains, most of it within 20 minutes. Each glass is a wallet the money passed through or a place it ended up; coins on top, dollar tokens under them, frozen dollars as ice.</span><span class="map-only">Every dot <span class="dot-key"></span> is <b id="unitTxt">$1 million</b> of it.</span><a class="howlink" href="#how">How they did it ↓</a></p>
       <p class="dek tech-only"><span class="map-only">1 dot = <span id="unitTxt2">$1M</span>. </span>Coins at today's prices. Ethereum, Bitcoin, Tron, XRP Ledger, Solana, Arbitrum, Optimism, Base and Avalanche. EIP-7702 delegation on Binance 14, one-call sweep; the other chains paid out by Binance's own wallets; onward flows of $1M+ followed four hops.</p>
     </div>
     <div class="clock pad" id="clockBox"><div class="t" id="clock">20:00:00</div><div class="s" id="clockS">replay · UTC</div></div>
     <div class="note pad" id="note" hidden></div>
     <div class="when pad" id="when">Figures <b id="whenTxt">now</b></div>
     <div class="figs" id="figs">
-      <div class="fig" data-k="B"><div class="k"><i style="background:var(--vault)"></i>Taken</div><div class="v" style="color:var(--vault)" id="fB">–</div><div class="d">Drained out of the orange tank, at today's prices.</div></div>
+      <div class="fig" data-k="B"><div class="k"><i style="background:var(--vault)"></i>Taken</div><div class="v" style="color:var(--vault)" id="fB">–</div><div class="d">Drained out of Binance's orange glasses, at today's prices.</div></div>
       <div class="fig" data-k="M"><div class="k"><i style="background:var(--red)"></i><span class="l">Still movable</span><span class="s">Movable</span></div><div class="v" style="color:var(--red)" id="fM">–</div><div class="d" id="dM">Mostly coins nobody can freeze: Ether, Bitcoin, XRP, TRX, SOL.</div></div>
       <div class="fig" data-k="F"><div class="k"><i style="background:var(--ice)"></i>Frozen</div><div class="v" style="color:var(--ice)" id="fF">–</div><div class="d">Locked by Tether, Circle and Ripple.</div></div>
       <div class="fig" data-k="V"><div class="k"><i style="background:#a99cff"></i><span class="l">Swaps and loans</span><span class="s">Swaps, loans</span></div><div class="v" style="color:#a99cff" id="fV">–</div><div class="d" id="dV">Exchanges and lenders, net of what came back.</div></div>
@@ -514,6 +526,6 @@ body.og .head { top: 34px; }
   </footer>
 </main>
 
-<script type="module" src="app.js?v=54"></script>
+<script type="module" src="app.js?v=57"></script>
 </body>
 </html>

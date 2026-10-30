@@ -12,7 +12,9 @@ import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 
 import { makeState, addNode, loadData, node, isSide, isAddr, isHash, addrUrl, txUrl, chainOf, CHAINS, totalsAt, tankSteps, tankLevels, assetClass, STABLE, short, sleep, ATTACKER, B14, DELEGATE, SEEDS } from "./core.js?v=12";
 
-import { makeTanks, DOT, COLS, BANDS, BAND_NAME, BAND_SHADE } from "./flow.js?v=20";
+import { makeTanks, DOT, COLS, BANDS, BAND_NAME, BAND_SHADE } from "./stage.js?v=3";
+
+import { stageModel } from "./stage-data.js?v=1";
 
 const Q = new URLSearchParams(location.search);
 
@@ -646,7 +648,7 @@ function bandTip(ev) {
     return;
   }
   const tip = $("tip");
-  tip.innerHTML = b.list ? `<b>${esc(TANK_NAME[b.k])}: ${usd(Math.max(0, b.v))}</b>` + b.list.map(([n, v]) => `<div>${esc(n)} ${usd(v)}</div>`).join("") : `<b>${esc(BAND_NAME[b.band])}</b>${usd(Math.max(0, b.v))}`;
+  tip.innerHTML = b.list ? `<b>${esc(b.name || TANK_NAME[b.k])}: ${usd(Math.max(0, b.v))}</b>` + b.list.map(([n, v]) => `<div>${esc(n)} ${usd(v)}</div>`).join("") : `<b>${esc(BAND_NAME[b.band])}</b>${usd(Math.max(0, b.v))}`;
   tip.hidden = false;
   const r = $("scene").getBoundingClientRect();
   tip.style.left = Math.max(8, Math.min(r.width - tip.offsetWidth - 8, ev.clientX - r.left + 14)) + "px";
@@ -712,6 +714,33 @@ function fitTanks(w, h, sb, slot) {
   const head = $("head").getBoundingClientRect().bottom - sb.top;
   const top = OG ? head + 20 : narrow() ? slot + NOTE_ROOM : head + 28;
   const bottom = $("figs").getBoundingClientRect().top - sb.top - (narrow() ? 10 : 16);
+  let rect = {
+    x0: 0,
+    x1: w,
+    y0: top,
+    y1: bottom
+  }, noteLeft = false;
+  if (!narrow() && !OG) {
+    const hb = [ ...$("head").querySelectorAll("h1, .dek") ].filter(e => e.offsetParent).map(e => {
+      const r = document.createRange();
+      r.selectNodeContents(e);
+      return r.getBoundingClientRect();
+    });
+    const left = Math.max(...hb.map(r => r.right)) - sb.left + 30, top2 = $("clockBox").getBoundingClientRect().bottom - sb.top + 18;
+    noteLeft = view === "totals" && bottom - head >= 150;
+    $("scene").classList.toggle("note-left", noteLeft);
+    if (noteLeft) {
+      $("scene").style.setProperty("--note-top", head + 18 + "px");
+      $("scene").style.setProperty("--note-w", Math.max(280, left - 40) + "px");
+    }
+    const x1 = noteLeft ? w - 12 : Math.min(w - 12, $("note").getBoundingClientRect().left - sb.left - 20);
+    if (x1 - left > w * .28 && bottom - top2 > (bottom - top) * 1.5) rect = {
+      x0: left,
+      x1,
+      y0: top2,
+      y1: bottom
+    };
+  } else $("scene").classList.remove("note-left");
   TK.resize({
     w,
     h,
@@ -719,7 +748,8 @@ function fitTanks(w, h, sb, slot) {
     top,
     bottom,
     centers,
-    cellW
+    cellW,
+    rect
   });
   const G2 = TK.layout;
   $("ticks").innerHTML = G2.ticks.map(t => `<span style="top:${t.y.toFixed(1)}px;left:${G2.axisX.toFixed(1)}px">$${t.b % 1 ? t.b.toFixed(1) : t.b}B</span>`).join("");
@@ -2001,6 +2031,7 @@ function rebuild() {
   sortEvents();
   TS = tankSteps(S, START);
   TK.setSteps(TS.steps);
+  TK.setModel(stageModel(S, START));
   areaCache = null;
   const t = ph;
   cursor = 0;
@@ -2066,6 +2097,7 @@ async function boot() {
     renderer: glOK ? renderer : null
   });
   TK.setSteps(TS.steps);
+  TK.setModel(stageModel(S, START));
   buildMilestones();
   renderHeadline();
   renderStory();
