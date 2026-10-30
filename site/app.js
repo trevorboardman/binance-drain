@@ -12,7 +12,7 @@ import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 
 import { makeState, addNode, loadData, node, isSide, isAddr, isHash, addrUrl, txUrl, chainOf, CHAINS, totalsAt, tankSteps, tankLevels, assetClass, STABLE, short, sleep, ATTACKER, B14, DELEGATE, SEEDS } from "./core.js?v=12";
 
-import { makeTanks, DOT, COLS, BANDS, BAND_NAME, BAND_SHADE } from "./tanks.js?v=10";
+import { makeTanks, DOT, COLS, BANDS, BAND_NAME, BAND_SHADE } from "./flow.js?v=10";
 
 const Q = new URLSearchParams(location.search);
 
@@ -445,7 +445,7 @@ function buildFrames() {
   if (FLAT) {
     G.list.forEach((n, i) => {
       const m = new THREE.Mesh(new THREE.RingGeometry(G.rad[i] + .3, G.rad[i] + (G.vert ? 1.1 : .8), 64), new THREE.MeshBasicMaterial({
-        color: G.kind[i] === 0 ? 15970874 : G.kind[i] === 5 ? 9426687 : 7041923,
+        color: G.kind[i] === 0 ? 16747034 : G.kind[i] === 5 ? 9426687 : 7041923,
         transparent: true,
         opacity: G.kind[i] === 0 ? .55 : .35,
         depthWrite: false
@@ -460,7 +460,7 @@ function buildFrames() {
     const r = G.rad[i], k = G.kind[i];
     let m;
     if (k === 0) m = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(r * 1.3, 1)), new THREE.LineBasicMaterial({
-      color: 15970874,
+      color: 16747034,
       transparent: true,
       opacity: .2
     })); else if (n.role === "hub") m = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(r * 1.25, 1)), new THREE.LineBasicMaterial({
@@ -510,7 +510,7 @@ function buildFrames() {
     const curve = new THREE.CubicBezierCurve3(a, a.clone().lerp(b, .3).add(lift), a.clone().lerp(b, .7).add(lift.clone().multiplyScalar(.6)), b);
     const w = Math.min(1, Math.max(0, Math.log10(p.usd / 1e5) / 4));
     const line = new THREE.Line((new THREE.BufferGeometry).setFromPoints(curve.getPoints(48)), new THREE.LineBasicMaterial({
-      color: p.victim ? 15970874 : 9082040,
+      color: p.victim ? 16747034 : 9082040,
       transparent: true,
       opacity: FLAT ? .06 + .22 * w : .04 + .14 * w,
       blending: FLAT ? THREE.NormalBlending : THREE.AdditiveBlending,
@@ -577,7 +577,7 @@ const NOTE_ROOM = 104;
 
 function fitCamera() {
   const w = canvas.clientWidth, h = canvas.clientHeight;
-  renderer.setPixelRatio(Math.min(OG ? 1 : view === "totals" ? 3 : 1.75, devicePixelRatio || 1));
+  renderer.setPixelRatio(Math.min(OG ? 1 : view === "totals" ? 2 : 1.75, devicePixelRatio || 1));
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
@@ -637,12 +637,6 @@ function bandLabels(list) {
   bandSig = sig;
   $("bandNames").innerHTML = keep.map((b, i) => `<span data-i="${i}" style="left:${b.x.toFixed(1)}px;top:${b.y0.toFixed(1)}px;width:${b.w.toFixed(1)}px;height:${(b.y1 - b.y0).toFixed(1)}px"></span>`).join("");
   bandLabels.list = keep;
-  const ticks = TK && TK.layout && TK.layout.ticks || [];
-  const top = ticks.length ? Math.min(...ticks.map(t => t.y)) - 6 : Math.min(...keep.map(b => b.y0), ...keep.map(b => b.y1));
-  if (isFinite(top)) {
-    $("bandKey").style.top = Math.max(0, top).toFixed(0) + "px";
-    $("bandKey").style.visibility = "visible";
-  }
 }
 
 function bandTip(ev) {
@@ -652,7 +646,7 @@ function bandTip(ev) {
     return;
   }
   const tip = $("tip");
-  tip.innerHTML = `<b>${esc(BAND_NAME[b.band])}</b>${usd(Math.max(0, b.v))}`;
+  tip.innerHTML = b.list ? `<b>${esc(TANK_NAME[b.k])}: ${usd(Math.max(0, b.v))}</b>` + b.list.map(([n, v]) => `<div>${esc(n)} ${usd(v)}</div>`).join("") : `<b>${esc(BAND_NAME[b.band])}</b>${usd(Math.max(0, b.v))}`;
   tip.hidden = false;
   const r = $("scene").getBoundingClientRect();
   tip.style.left = Math.max(8, Math.min(r.width - tip.offsetWidth - 8, ev.clientX - r.left + 14)) + "px";
@@ -667,7 +661,35 @@ $("bandNames").addEventListener("pointerleave", () => {
   $("tip").hidden = true;
 });
 
-$("bandKey").innerHTML = BANDS.map((b, i) => `<span><i style="background:rgb(${[ 243, 178, 58 ].map(c => Math.round(c * BAND_SHADE[i])).join(",")})"></i>${b === "more" ? "Other chains" : BAND_NAME[b]}</span>`).join("");
+function onTilt(e) {
+  if (!TK || e.gamma == null || e.beta == null) return;
+  const a = screen.orientation && screen.orientation.angle || 0;
+  TK.tilt(a === 90 ? -e.beta : a === 270 ? e.beta : a === 180 ? -e.gamma : e.gamma);
+}
+
+let tiltAsked = false;
+
+$("scene").addEventListener("pointerdown", ev => {
+  if (view !== "totals" || !TK || reduced) return;
+  const r = $("scene").getBoundingClientRect();
+  if (!TK.poke(ev.clientX - r.left, ev.clientY - r.top) || tiltAsked) return;
+  tiltAsked = true;
+  const D = window.DeviceOrientationEvent;
+  if (D && typeof D.requestPermission === "function") D.requestPermission().then(s => {
+    if (s === "granted") addEventListener("deviceorientation", onTilt);
+  }).catch(e => console.error("[tracker] tilt permission", e));
+});
+
+if (!reduced && window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission !== "function") addEventListener("deviceorientation", onTilt);
+
+const TANK_NAME = {
+  B: "Taken from Binance",
+  M: "Still movable",
+  F: "Frozen",
+  V: "In swaps and loans",
+  R: "Given back",
+  X: "Not traced"
+};
 
 function fitTanks(w, h, sb, slot) {
   const centers = {};
@@ -1129,9 +1151,83 @@ function renderHeadline() {
   $("hOut").textContent = big(tankLevels(TS.steps).B);
 }
 
+const PAST = [ {
+  who: "LuBian",
+  when: "Dec 2020, a bitcoin mining pool",
+  v: 35e8
+}, {
+  who: "Bybit",
+  when: "Feb 2025, an exchange",
+  v: 15e8
+}, {
+  who: "Ronin",
+  when: "Mar 2022, a gaming network",
+  v: 625e6
+}, {
+  who: "Poly Network",
+  when: "Aug 2021, mostly returned",
+  v: 611e6
+}, {
+  who: "Coincheck",
+  when: "Jan 2018, an exchange",
+  v: 534e6
+}, {
+  who: "Bitget",
+  when: "Sep 2026, an exchange",
+  v: 352e6
+} ];
+
+const TIMES = [ "", "as large as", "twice", "three times", "four times", "five times", "six times", "seven times", "eight times", "nine times", "ten times" ];
+
+const timesWord = r => r >= 2 ? "more than " + (TIMES[Math.floor(r)] || Math.floor(r) + " times") : "larger than";
+
+const chainKey = k => {
+  const p = String(k).split(":")[0];
+  return CHAINS[p] && p !== "eth" ? p : "eth";
+};
+
+const tableUsd = v => v >= 1e9 ? "$" + (v / 1e9).toFixed(2) + "B" : v >= 1e6 ? "$" + Math.round(v / 1e6) + "M" : v >= 1e4 ? "$" + Math.round(v / 1e3) + "K" : "–";
+
+const shortUsd = v => v >= 1e9 ? "$" + (v / 1e9).toFixed(1) + "B" : "$" + Math.round(v / 1e6) + "M";
+
+function renderStory() {
+  const steps = TS.steps;
+  if (!steps.length) return;
+  const L = tankLevels(steps);
+  $("recordTxt").textContent = `It is ${timesWord(L.B / 15e8)} the Bybit hack of February 2025, which until now was the biggest theft from an exchange. The FBI blamed North Korea for that one.`;
+  const rows = [ {
+    who: "Binance",
+    when: "Oct 2026, an exchange",
+    v: L.B,
+    us: true
+  }, ...PAST ].sort((a, b) => b.v - a.v), top = rows[0].v;
+  $("rank").innerHTML = rows.map(r => `<div class="row${r.us ? " us" : ""}"><div class="who">${esc(r.who)}<small>${esc(r.when)}</small></div>` + `<div class="bar"><div class="fill" style="width:${(r.v / top * 82).toFixed(2)}%"></div><span class="v">${esc(r.us ? big(r.v) : shortUsd(r.v))}</span></div></div>`).join("");
+  const byTx = new Map;
+  for (const s of steps) if (s.a === "B" && chainKey(s.key) === "eth") {
+    const k = String(s.key).split(":")[0];
+    byTx.set(k, (byTx.get(k) || 0) + s.v);
+  }
+  const sweep = Math.max(0, ...byTx.values());
+  if (sweep) $("tlSweep").textContent = big(sweep);
+  const chains = [];
+  for (const c of new Set(steps.map(s => chainKey(s.key)))) {
+    const own = steps.filter(s => chainKey(s.key) === c), Lc = tankLevels(own), first = own.find(s => s.a === "B");
+    if (first) chains.push({
+      c,
+      B: Lc.B,
+      M: Lc.M,
+      F: Lc.F,
+      first: first.t
+    });
+  }
+  chains.sort((a, b) => b.B - a.B);
+  const sum = k => chains.reduce((a, r) => a + r[k], 0);
+  $("tbl").innerHTML = '<thead><tr><th>Blockchain</th><th class="hide-s">First payment (UTC)</th><th class="r">Taken</th><th class="r">Frozen</th><th class="r">Still with the attacker</th></tr></thead><tbody>' + chains.map(r => `<tr><td>${esc(CHAINS[r.c].name)}</td><td class="hide-s">${esc(new Date(r.first).toISOString().slice(11, 16))}</td><td class="r">${esc(tableUsd(r.B))}</td><td class="r frozen">${esc(r.F >= 1e4 ? tableUsd(r.F) : "–")}</td><td class="r held">${esc(tableUsd(r.M))}</td></tr>`).join("") + `</tbody><tfoot><tr><td>All ${chains.length === 9 ? "nine" : chains.length}</td><td class="hide-s"></td><td class="r">${esc(tableUsd(sum("B")))}</td><td class="r">${esc(tableUsd(sum("F")))}</td><td class="r">${esc(tableUsd(sum("M")))}</td></tr></tfoot>`;
+}
+
 const sc = $("sc"), sx = sc.getContext("2d");
 
-const AREA = [ [ "M", "#ff3d33" ], [ "F", "#8fd6ff" ], [ "V", "#d5dbe4" ], [ "R", "#3fe08f" ], [ "X", "#8d97a6" ] ];
+const AREA = [ [ "M", "#ff3d33" ], [ "F", "#8fd6ff" ], [ "V", "#a99cff" ], [ "R", "#3fe08f" ], [ "X", "#8d97a6" ] ];
 
 const NIGHT = 4.5 * 36e5;
 
@@ -1283,10 +1379,10 @@ function scrubTip(e) {
   const b = $("scrub").getBoundingClientRect(), TSC = timeScale(b.width), x = e.clientX - b.left;
   const pin = MS.find(m => Math.abs(TSC.X(m.at) - x) < 5);
   const row = (k, name, v) => `<span class="sw" style="background:${{
-    B: "#f3b23a",
+    B: "#ff8a1a",
     M: "#ff3d33",
     F: "#8fd6ff",
-    V: "#d5dbe4",
+    V: "#a99cff",
     R: "#3fe08f",
     X: "#8d97a6"
   }[k]}"></span>${name} ${usd(Math.max(0, v))}`;
@@ -1474,9 +1570,9 @@ function frame(now) {
   $("clock").textContent = hms(ph);
   $("clockS").textContent = (live ? "live · " : "replay · ") + new Date(ph).toISOString().slice(0, 10) + " UTC";
   if (glOK && built && view === "totals") {
-    bloom.strength = narrow() ? .18 : .22;
-    bloom.radius = .25;
-    bloom.threshold = .6;
+    bloom.strength = .55;
+    bloom.radius = .55;
+    bloom.threshold = .32;
     const fr = TK.frame(now, live ? Infinity : ph);
     if (fr) bandLabels(fr.bands);
     renderPass.scene = TK.scene;
@@ -1547,7 +1643,7 @@ const ROLE = n => n.addr === BOTS ? "unnamed contracts" : {
 }[n.role];
 
 const COLOR = n => !n ? "#8d97a6" : n.addr === BOTS ? "#5c6470" : {
-  victim: "#f3b23a",
+  victim: "#ff8a1a",
   attacker: "#ff3d33",
   hub: "#ff3d33",
   hop: "#ff8a5c",
@@ -1715,6 +1811,7 @@ async function refreshLoop() {
     }
     buildMilestones();
     renderHeadline();
+    renderStory();
     renderTables();
     renderWatch();
     snapLine();
@@ -1868,11 +1965,11 @@ function drawMarket(hx) {
     x.stroke();
   };
   line(MK.B, "#8d97a6", 1.4);
-  line(MK.A, "#f3b23a", 2.2);
+  line(MK.A, "#ff8a1a", 2.2);
   const ti = hx == null ? MK.lowA[0] : t0 + (hx - L) / (w - L - R) * (t1 - t0);
   const near = rows => rows.reduce((m, p) => Math.abs(p[0] - ti) < Math.abs(m[0] - ti) ? p : m, rows[0]);
   const a = near(MK.A), b = near(MK.B);
-  x.fillStyle = "#f3b23a";
+  x.fillStyle = "#ff8a1a";
   x.beginPath();
   x.arc(X(a[0]), Y(a[1]), 3.5, 0, 7);
   x.fill();
@@ -1954,13 +2051,18 @@ async function boot() {
   sortEvents();
   TS = tankSteps(S, START);
   TK = makeTanks({
-    reduced: reduced || OG
+    reduced: reduced || OG,
+    renderer: glOK ? renderer : null
   });
   TK.setSteps(TS.steps);
   buildMilestones();
   renderHeadline();
+  renderStory();
   if (glOK) {
-    composer = new EffectComposer(renderer);
+    composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, {
+      type: THREE.HalfFloatType,
+      samples: 4
+    }));
     renderPass = new RenderPass(scene, camera);
     composer.addPass(renderPass);
     composer.addPass(new ShaderPass({
@@ -1980,6 +2082,7 @@ async function boot() {
       if (G && narrow() !== G.vert) rebuild(); else fitCamera();
       areaCache = null;
     }).observe(canvas);
+    document.fonts.ready.then(() => fitCamera()).catch(e => console.error("[tracker] fonts", e));
   }
   setView(view);
   buildSig();
