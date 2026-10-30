@@ -379,6 +379,26 @@ export function ingestTransfer(S, it) {
   }, it.from, it.to);
 }
 
+export function ingestInternal(S, it) {
+  if (!it.from || !it.to || !it.success || it.type !== "call" || !it.index) return;
+  const t = it.timestamp ? Date.parse(it.timestamp) : Date.now();
+  if (t < SINCE) return;
+  const amt = big(it.value || "0", 18), usd = amt * S.ethPrice;
+  if (usd < MIN_EVT) return;
+  record(S, {
+    key: it.transaction_hash + ":i" + it.index,
+    t,
+    from: it.from.hash.toLowerCase(),
+    to: it.to.hash.toLowerCase(),
+    sym: "ETH",
+    amt,
+    usd,
+    hash: it.transaction_hash,
+    block: it.block_number || 0,
+    internal: true
+  }, it.from, it.to);
+}
+
 export function makeClient(S, {gap = 140} = {}) {
   let chain = Promise.resolve();
   const fail = (where, e) => {
@@ -469,6 +489,7 @@ export function makeClient(S, {gap = 140} = {}) {
       }).filter(x => x.usd > 1e3).sort((x, y) => y.usd - x.usd);
       await pages("/addresses/" + n.addr + "/transactions", ingestTx, maxPages);
       await pages("/addresses/" + n.addr + "/token-transfers?type=ERC-20", ingestTransfer, maxPages);
+      await pages("/addresses/" + n.addr + "/internal-transactions", ingestInternal, maxPages);
       n.polled = Date.now();
     } catch (e) {
       fail(n.plain + " " + short(n.addr), e);
@@ -715,4 +736,98 @@ export function totalsAt(S, t, since = 0) {
     }
   }
   return T;
+}
+
+export const TANKS = [ "M", "F", "V", "R", "X" ];
+
+const ISSUER_OF = {
+  USDT: "Tether",
+  USDC: "Circle",
+  RLUSD: "Ripple"
+};
+
+export function tankSteps(S, since) {
+  const value = e => e.sym === "ETH" || e.sym === "WETH" ? e.amt * S.ethPrice : STABLE.has((e.sym || "").toUpperCase()) ? e.amt : e.usd;
+  const cat = n => !n ? "other" : n.role === "victim" ? "victim" : isSide(n) ? "side" : n.role === "venue" ? "venue" : n.role === "recovered" ? "back" : "other";
+  const evs = [ ...S.events.values() ].filter(e => e.t >= since && e.usd > 0).sort((a, b) => a.t - b.t || (a.key < b.key ? -1 : 1));
+  const fzs = [ ...S.freezes.values() ].map(z => ({
+    z,
+    n: node(S, z.addr)
+  })).filter(x => isSide(x.n)).sort((a, b) => a.z.t - b.z.t);
+  const frozen = new Set, bal = new Map, steps = [], neg = new Map;
+  const bk = (n, sym) => n.addr + "|" + sym;
+  const isFz = (n, sym) => !!ISSUER_OF[sym] && frozen.has(n.addr + "|" + ISSUER_OF[sym]);
+  const push = (t, a, b, v, cls, key) => {
+    if (a !== b && v > 0) steps.push({
+      t,
+      a,
+      b,
+      v,
+      cls,
+      key
+    });
+  };
+  let fi = 0;
+  const freezeUpTo = t => {
+    for (;fi < fzs.length && fzs[fi].z.t <= t; fi++) {
+      const {z, n} = fzs[fi], k = n.addr + "|" + z.issuer;
+      if (frozen.has(k)) continue;
+      frozen.add(k);
+      const sym = Object.keys(ISSUER_OF).find(s => ISSUER_OF[s] === z.issuer);
+      push(z.t, "M", "F", Math.max(0, bal.get(bk(n, sym)) || 0), "usd", z.key);
+    }
+  };
+  for (const e of evs) {
+    freezeUpTo(e.t);
+    const fn = node(S, e.from), tn = node(S, e.to), fc = cat(fn), tc = cat(tn), v = value(e), cls = assetClass(e.sym);
+    if (!(v > 0)) continue;
+    if (fc === "side") {
+      const k = bk(fn, e.sym), b = (bal.get(k) || 0) - v;
+      bal.set(k, b);
+      if (b < -1) neg.set(k, b); else neg.delete(k);
+    }
+    if (tc === "side") {
+      const k = bk(tn, e.sym), b = (bal.get(k) || 0) + v;
+      bal.set(k, b);
+      if (b < -1) neg.set(k, b); else neg.delete(k);
+    }
+    const src = fc === "side" ? isFz(fn, e.sym) ? "F" : "M" : null, dst = tc === "side" ? isFz(tn, e.sym) ? "F" : "M" : null;
+    if (fc === "victim" && dst) push(e.t, "B", dst, v, cls, e.key); else if (src && dst) push(e.t, src, dst, v, cls, e.key); else if (src) push(e.t, src, tc === "venue" ? "V" : tc === "back" || tc === "victim" ? "R" : "X", v, cls, e.key); else if (dst) push(e.t, fc === "venue" ? "V" : fc === "back" ? "R" : "X", dst, v, cls, e.key);
+  }
+  freezeUpTo(Infinity);
+  const missing = [ ...neg.values() ].reduce((s, b) => s - b, 0);
+  return {
+    steps,
+    missing
+  };
+}
+
+export function tankLevels(steps, t = Infinity) {
+  const L = {
+    B: 0,
+    M: 0,
+    F: 0,
+    V: 0,
+    R: 0,
+    X: 0
+  }, by = {};
+  for (const k in L) by[k] = {
+    eth: 0,
+    usd: 0,
+    tok: 0
+  };
+  for (const s of steps) {
+    if (s.t > t) break;
+    if (s.a === "B") {
+      L.B += s.v;
+      by.B[s.cls] += s.v;
+    } else {
+      L[s.a] -= s.v;
+      by[s.a][s.cls] -= s.v;
+    }
+    L[s.b] += s.v;
+    by[s.b][s.cls] += s.v;
+  }
+  L.by = by;
+  return L;
 }

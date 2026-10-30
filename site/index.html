@@ -6,10 +6,10 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Binance Drain Tracker</title>
-<meta name="description" content="$3.3 billion left Binance's hot wallets on 29 Oct 2026. Every dot is $25,000 of it: watch it leave, split up and freeze, live from the Ethereum blockchain.">
+<meta name="description" content="$3.7 billion left Binance's hot wallets on 29 Oct 2026. Every dot is $1 million of it, stacked where it is now: frozen, still movable, given back. Live from the Ethereum blockchain.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="$3.3 billion left Binance in one night. Every dot is $25,000 of it.">
-<meta property="og:description" content="A live, to-scale picture of the Binance hot wallet drain: where the money went, what Tether and Circle froze, and what the attacker can still move. Replay the night from the first transaction.">
+<meta property="og:title" content="$3.7 billion left Binance in one night. Here is where it is now.">
+<meta property="og:description" content="A live, to-scale picture of the Binance hot wallet drain: every dollar that left, what Tether, Circle and Ripple froze, and what the attacker can still move. Replay the night from the first transaction.">
 <meta property="og:url" content="https://binance.trevorboardman.com/">
 <meta property="og:image" content="https://binance.trevorboardman.com/og.png">
 <meta property="og:image:width" content="1200">
@@ -71,13 +71,19 @@ h1 .amt { color: var(--vault); font-stretch: 100%; font-variant-numeric: tabular
 .dek b { color: var(--ink); font-weight: 700; }
 .dot-key { display: inline-block; width: .55em; height: .55em; border-radius: 50%; background: var(--vault); box-shadow: 0 0 10px var(--vault); vertical-align: .08em; margin: 0 .1em; }
 
-.figs { position: absolute; left: 0; right: 0; bottom: 92px; display: flex; flex-wrap: wrap; align-items: flex-end; pointer-events: none; }
-.fig { padding: 0 26px 0 0; margin-right: 26px; border-right: 1px solid var(--rule); min-width: 0; }
-.fig:last-child { border-right: 0; }
-.fig .k { font: 600 11px/1.3 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--mute); display: flex; gap: 7px; align-items: center; }
+.figs { position: absolute; left: 0; right: 0; bottom: 104px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: start; pointer-events: none; padding-left: calc(max(22px, env(safe-area-inset-left, 0px)) + 52px); padding-right: max(22px, env(safe-area-inset-right, 0px)); }
+.fig { position: relative; padding: 0 8px; min-width: 0; text-align: center; }
+.fig + .fig::before { content: '+'; position: absolute; left: -.3em; top: 26px; font: 500 22px/1 var(--wide); color: var(--faint); }
+.fig[data-k="M"]::before { content: '='; }
+.fig .k { font: 600 11px/1.3 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--mute); display: flex; gap: 7px; align-items: center; justify-content: center; }
 .fig .k i { width: 8px; height: 8px; border-radius: 50%; }
-.fig .v { font: 800 clamp(30px, 3.6vw, 50px)/1 var(--wide); font-variant-numeric: tabular-nums; margin-top: 6px; text-shadow: 0 0 24px currentColor; }
-.fig .d { font-size: 12.5px; color: var(--mute); max-width: 23ch; margin-top: 6px; line-height: 1.4; }
+.fig .v { font: 800 clamp(22px, 2.5vw, 38px)/1 var(--wide); font-variant-numeric: tabular-nums; margin-top: 6px; text-shadow: 0 0 24px currentColor; }
+.fig .d { font-size: 12px; color: var(--mute); max-width: 24ch; margin: 6px auto 0; line-height: 1.4; }
+.fig .s { display: none; }
+.ticks { position: absolute; inset: 0; pointer-events: none; }
+.ticks span { position: absolute; transform: translateY(-50%); font: 500 10.5px/1 var(--mono); color: var(--mute); }
+body.v-map .ticks, body:not(.v-map) .labels, body:not(.v-map) .hint, body:not(.v-map) .when { display: none; }
+.tip .sw { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; }
 .when { position: absolute; left: 0; bottom: 226px; font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--mute); pointer-events: none; }
 .when b { color: var(--ink); font-weight: 600; }
 .when.rep b { color: var(--vault); }
@@ -109,7 +115,7 @@ h1 .amt { color: var(--vault); font-stretch: 100%; font-variant-numeric: tabular
 .play { border: 0; background: none; padding: 8px 0; cursor: pointer; display: inline-flex; align-items: center; gap: 9px; font: 600 11.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; min-width: 74px; }
 .play svg { width: 13px; height: 13px; fill: var(--vault); }
 .play:hover { color: var(--vault); }
-.scrub { position: relative; height: 50px; cursor: pointer; touch-action: none; }
+.scrub { position: relative; height: 76px; cursor: pointer; touch-action: none; }
 .scrub canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .ctl { display: flex; align-items: center; gap: 18px; }
 .speed button { font: 600 11.5px/1 var(--mono); }
@@ -133,7 +139,8 @@ h1 .amt { color: var(--vault); font-stretch: 100%; font-variant-numeric: tabular
   .kicker { margin-bottom: 10px; font-size: 11px; }
   h1 { font-size: clamp(32px, 9.4vw, 46px); }
   .dek { font-size: 15px; max-width: none; transition: opacity .4s; }
-  .scene.noting .dek { opacity: 0; }
+  .dek { transition: opacity .3s .45s; }
+  .scene.noting .dek { opacity: 0; transition: opacity .2s; }
   .note { top: var(--slot, 200px); bottom: auto; right: 0; left: 0; width: auto; }
   .note[hidden] { transform: translateY(4px); }
   .note h3, .note p, .note .tx { text-align: left; }
@@ -141,17 +148,27 @@ h1 .amt { color: var(--vault); font-stretch: 100%; font-variant-numeric: tabular
   .note h3 { font-size: 17px; margin: 6px 0 4px; }
   .note p { font-size: 13.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .note .tx { display: none; }
-  .clock { top: auto; bottom: 172px; right: auto; left: 0; text-align: left; display: flex; align-items: baseline; gap: 10px; }
-  .clock .t { font-size: 22px; }
-  .figs { bottom: 114px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 10px; align-items: end; }
-  .fig { padding: 0; margin: 0; border: 0; }
-  .fig .k { font-size: 9px; letter-spacing: .05em; gap: 5px; align-items: flex-start; line-height: 1.25; }
-  .fig .k i { width: 6px; height: 6px; flex: none; margin-top: .25em; }
+  .clock { top: 50px; bottom: auto; right: 0; left: auto; text-align: right; }
+  .clock .t { font-size: 15px; line-height: 1; }
+  .clock .s { display: none; }
+  .kicker .long { display: none; }
+  .figs { bottom: 134px; padding-left: calc(max(16px, env(safe-area-inset-left, 0px)) + 30px); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .fig { padding: 0 1px; }
+  .fig + .fig::before { top: auto; bottom: 1px; font-size: 12px; left: -.35em; }
+  .fig .k { font-size: 8.5px; letter-spacing: .02em; display: block; line-height: 1.2; min-height: 2.4em; }
+  .fig .k i { display: none; }
+  .fig .k .l { display: none; }
+  .fig .k .s { display: inline; }
   .fig .d { display: none; }
-  .fig .v { font-size: clamp(16px, 5vw, 22px); margin-top: 4px; text-shadow: 0 0 14px currentColor; }
+  .fig .v { font-size: 12px; margin-top: 3px; text-shadow: 0 0 12px currentColor; }
+  .ticks span { font-size: 9px; }
+  .scrub { height: 58px; }
   .when, .hint { display: none; }
   .deck { grid-template-columns: auto minmax(0, 1fr); }
-  .deck .ctl { grid-column: 1 / -1; justify-content: space-between; }
+  .deck .ctl { grid-column: 1 / -1; justify-content: space-between; gap: 8px; }
+  .deck .ctl button { white-space: nowrap; font-size: 10.5px; }
+  .deck .ctl .mode { gap: 9px; }
+  .golive { padding-left: 10px; }
   .scene { min-height: 760px; height: 100svh; }
 }
 
@@ -159,6 +176,7 @@ h1 .amt { color: var(--vault); font-stretch: 100%; font-variant-numeric: tabular
 section.block { padding-block: 64px 0; }
 h2 { font: 900 clamp(30px, 4vw, 52px)/.95 var(--wide); font-stretch: 115%; margin: 0 0 26px; letter-spacing: -.01em; text-wrap: balance; }
 .steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 1px solid var(--rule); }
+@media (min-width: 761px) and (max-width: 1180px) { h1 { max-width: calc(100% - min(360px, 40vw) - 28px); } }
 @media (max-width: 1100px) { .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .steps { grid-template-columns: minmax(0, 1fr); } }
 .step { padding: 18px 22px 22px 0; min-width: 0; border-bottom: 1px solid var(--rule); }
@@ -222,6 +240,7 @@ body.og .head { top: 34px; }
 <div class="scene" id="scene">
   <canvas class="gl" id="gl"></canvas>
   <div class="labels" id="labels"></div>
+  <div class="ticks" id="ticks"></div>
   <div class="layer pad">
     <div class="top pad">
       <div class="mark">Binance drain <span>tracker</span></div>
@@ -232,19 +251,21 @@ body.og .head { top: 34px; }
       </div>
     </div>
     <div class="head pad" id="head">
-      <p class="kicker">Ethereum · Thursday 29 October 2026</p>
+      <p class="kicker">Ethereum · <span class="long">Thursday </span>29 Oct<span class="long">ober</span> 2026</p>
       <h1><span class="amt" id="hOut">$3.3 billion</span> left Binance in one night</h1>
-      <p class="dek plain-only">Every dot <span class="dot-key"></span> is <b id="unitTxt">$25,000</b> of it.</p>
-      <p class="dek tech-only">1 dot = <span id="unitTxt2">$25K</span> at current prices. EIP-7702 delegation on Binance 14, one-call sweep, onward flows of $1M+ followed four hops.</p>
+      <p class="dek plain-only">Every dot <span class="dot-key"></span> is <b id="unitTxt">$1 million</b> of it.</p>
+      <p class="dek tech-only">1 dot = <span id="unitTxt2">$1M</span> at today's prices. EIP-7702 delegation on Binance 14, one-call sweep, onward flows of $1M+ followed four hops.</p>
     </div>
     <div class="clock pad" id="clockBox"><div class="t" id="clock">20:18:00</div><div class="s" id="clockS">replay · UTC</div></div>
     <div class="note pad" id="note" hidden></div>
     <div class="when pad" id="when">Figures <b id="whenTxt">now</b></div>
-    <div class="figs pad" id="figs">
-      <div class="fig"><div class="k"><i style="background:var(--vault)"></i>Taken</div><div class="v" style="color:var(--vault)" id="fOut">–</div><div class="d">Out of Binance, at today's prices.</div></div>
-      <div class="fig"><div class="k"><i style="background:var(--ice)"></i>Frozen</div><div class="v" style="color:var(--ice)" id="fFz">–</div><div class="d">Locked by Tether, Circle and Ripple.</div></div>
-      <div class="fig"><div class="k"><i style="background:var(--red)"></i>Still movable</div><div class="v" style="color:var(--red)" id="fFree">–</div><div class="d">Mostly Ether, which nobody can freeze.</div></div>
-      <div class="fig"><div class="k"><i style="background:var(--svc)"></i>Sent to programs</div><div class="v" style="color:#c2c8d2" id="fSvc">–</div><div class="d">Into exchanges, lenders and bots.</div></div>
+    <div class="figs" id="figs">
+      <div class="fig" data-k="B"><div class="k"><i style="background:var(--vault)"></i>Taken</div><div class="v" style="color:var(--vault)" id="fB">–</div><div class="d">Out of Binance, at today's prices.</div></div>
+      <div class="fig" data-k="M"><div class="k"><i style="background:var(--red)"></i><span class="l">Still movable</span><span class="s">Movable</span></div><div class="v" style="color:var(--red)" id="fM">–</div><div class="d" id="dM">Mostly Ether, which nobody can freeze.</div></div>
+      <div class="fig" data-k="F"><div class="k"><i style="background:var(--ice)"></i>Frozen</div><div class="v" style="color:var(--ice)" id="fF">–</div><div class="d">Locked by Tether, Circle and Ripple.</div></div>
+      <div class="fig" data-k="V"><div class="k"><i style="background:#d5dbe4"></i><span class="l">Swaps and loans</span><span class="s">Swaps, loans</span></div><div class="v" style="color:#d5dbe4" id="fV">–</div><div class="d" id="dV">Exchanges and lenders, net of what came back.</div></div>
+      <div class="fig" data-k="R"><div class="k"><i style="background:var(--usd)"></i>Given back</div><div class="v" style="color:var(--usd)" id="fR">–</div><div class="d">Pulled back by Synthetix and The Sandbox.</div></div>
+      <div class="fig" data-k="X"><div class="k"><i style="background:#8d97a6"></i>Not traced</div><div class="v" style="color:#c2c8d2" id="fX">–</div><div class="d">Sent on in amounts under $1M.</div></div>
     </div>
     <div class="hint pad" id="hint">Drag to turn · hover a name</div>
     <div class="deck pad">
@@ -256,6 +277,7 @@ body.og .head { top: 34px; }
           <button data-s="300" aria-pressed="true">5 min/s</button>
           <button data-s="1200" aria-pressed="false">20 min/s</button>
         </div>
+        <div class="mode views" id="views" role="group" aria-label="View"><button data-v="totals" aria-pressed="true">Totals</button><button data-v="map" aria-pressed="false">Wallet map</button></div>
         <button class="golive" id="golive" aria-pressed="false">Live</button>
       </div>
     </div>
@@ -274,7 +296,7 @@ body.og .head { top: 34px; }
       <div class="step"><time>20:20:59 UTC</time><h3>Wallet 14 changes hands</h3>
         <p>A transaction signed with the wallet's own key hands it to the attacker's program.</p>
         <p class="tx tech-only">Type-4 tx <a href="https://etherscan.io/tx/0xad99264d5532ae0dd04b2004eebda05f25657e70dacb764f7ac8d4ccd051298b" target="_blank" rel="noopener">0xad99…298b</a> sets 0x28c6…1d60's EIP-7702 delegation to 0x63e8…6fae. All 50 authorizations recover to B14 and cover nonces 18,914,775–18,914,824; B14 had used 18,914,775 at 20:17:47, and 18,914,809 applied.</p></div>
-      <div class="step"><time>20:24:23 UTC</time><h3>$2.8 billion in one transfer</h3>
+      <div class="step"><time>20:24:23 UTC</time><h3><span id="sweepAmt">$2.5 billion</span> in one transfer</h3>
         <p>167,464 Ether and 63 other tokens leave at once. The fee: under $1.</p>
         <p class="tx tech-only"><a href="https://etherscan.io/tx/0x53bd38b816c23e74134786c29a8c18d792777998a3b9326047b583100e88e2f3" target="_blank" rel="noopener">0x53bd…e2f3</a>: 0x7c86…5ca0 calls 0x8a179be4 on B14, now running the delegate's code, which sweeps to Exploiter 2. The delegate accepts calls only from 0x7c86, funded through Tornado Cash on 28 Oct.</p></div>
       <div class="step"><time>20:26–21:00</time><h3>The money splits up</h3>
@@ -312,7 +334,9 @@ body.og .head { top: 34px; }
         <div class="method"><h3>Method</h3>
           <p>The starting points are the five attack transactions above, decoded with <code>eth_getTransactionByHash</code>. From there every transfer of ETH or a priced ERC-20 worth $10K or more is recorded. A plain wallet (no code) or Safe multisig that receives $1M or more from the attacker's side is followed in turn, up to four hops.</p>
           <p>Contracts are not followed. Named ones are grouped by what they do. Unnamed ones are grouped together: they may be trading routers or the attacker's own contracts, and this page can't tell which. Neither group's balances count as the attacker's. A wallet with an EIP-7702 delegation has code but is still a wallet, and is followed. A few roles were set by hand after checking on-chain: two Safes that took back Synthetix and Sandbox tokens, and two hop wallets the first pass took for outside senders.</p>
-          <p>The dots: each one stands for $25,000 ($60,000 on phones) and takes the exact path its money took, transfer by transfer. Dollar tokens turn blue once their issuer has blocked the wallet they sit in. Amounts use current prices, so they show what the coins are worth now.</p>
+          <p>Totals: every dollar that leaves Binance for the attacker's side lands in "still movable" and from then on is in exactly one place, so the five columns always add up to what was taken. Money sent to an exchange or lender goes to "in swaps and loans" and comes back out when the service pays (a swap's Ether, an Aave loan), so that column is net. A freeze moves the frozen wallet's balance of that token to "frozen". Money sent on in amounts under $1M goes to wallets this page does not follow: "not traced". Each dot is $1M. Ether is valued at today's price, dollar tokens at $1, other tokens at the price when the transfer was recorded.</p>
+          <p>Wallet map: each dot stands for $25,000 ($60,000 on phones) and takes the exact path its money took, transfer by transfer. Dollar tokens turn blue once their issuer has blocked the wallet they sit in.</p>
+          <p>Ether moved by a contract inside a transaction (an internal transaction, such as the 167,464 ETH in the main sweep, or a router paying out a swap) is read from Blockscout's internal-transactions list, which its transactions list leaves out.</p>
           <p>Not covered: the 612.7M USDT on Tron and 16,687 BTC that Whale Alert reported, which no source has tied to the attacker; the Arbitrum and Avalanche flows in Blockaid's total; USD1 and PAXG freezes reported by World Liberty and Paxos. Ripple reported freezing about $200M of RLUSD; 40.5M is frozen on Ethereum, and that is what this page counts.</p>
           <p>Data comes from the <a href="https://eth.blockscout.com" target="_blank" rel="noopener">Blockscout</a> API and the <a href="https://ethereum-rpc.publicnode.com" target="_blank" rel="noopener">PublicNode</a> Ethereum RPC by a job that runs about every 10 minutes and publishes the result with this page; your browser reads only this site. <span id="health"></span></p>
         </div>
@@ -332,6 +356,6 @@ body.og .head { top: 34px; }
   </footer>
 </main>
 
-<script type="module" src="app.js?v=4"></script>
+<script type="module" src="app.js?v=14"></script>
 </body>
 </html>

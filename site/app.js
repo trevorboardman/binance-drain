@@ -10,7 +10,9 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 
-import { makeState, addNode, loadData, node, isSide, isAddr, isHash, totalsAt, assetClass, short, sleep, ATTACKER, B14, DELEGATE, SEEDS } from "./core.js?v=9";
+import { makeState, addNode, loadData, node, isSide, isAddr, isHash, totalsAt, tankSteps, tankLevels, assetClass, STABLE, short, sleep, ATTACKER, B14, DELEGATE, SEEDS } from "./core.js?v=10";
+
+import { makeTanks, DOT, COLS } from "./tanks.js?v=6";
 
 const Q = new URLSearchParams(location.search);
 
@@ -47,6 +49,10 @@ const amt = v => v >= 1e12 ? (v / 1e12).toFixed(2) + "T" : v >= 1e9 ? (v / 1e9).
 });
 
 const hms = t => new Date(t).toISOString().slice(11, 19);
+
+const big = v => v >= 1e9 ? "$" + (v / 1e9).toFixed(1) + " billion" : v >= 1e6 ? "$" + Math.round(v / 1e6) + " million" : usd(v, true);
+
+const valueOf = e => e.sym === "ETH" || e.sym === "WETH" ? e.amt * S.ethPrice : STABLE.has((e.sym || "").toUpperCase()) ? e.amt : e.usd;
 
 const ago = t => {
   const s = Math.max(0, (Date.now() - t) / 1e3);
@@ -92,9 +98,18 @@ const shownT = e => e.liveAt || e.t;
 
 let evs = [];
 
-let ph = START, live = false, playing = false, speed = 300, cursor = 0, slowUntil = 0;
+let ph = START, live = false, playing = false, speed = 300, cursor = 0, slowUntil = 0, holdUntil = 0;
 
 let T = null, Tdirty = true;
+
+let view = Q.get("view") === "map" ? "map" : "totals";
+
+let TK = null, TS = {
+  steps: [],
+  missing: 0
+};
+
+const liveKeys = new Set;
 
 const sortEvents = () => {
   evs = [ ...S.events.values() ].filter(e => e.t >= START || e.liveAt).sort((a, b) => shownT(a) - shownT(b));
@@ -234,7 +249,7 @@ function buildParticles() {
 
 const canvas = $("gl");
 
-let renderer, scene, camera, composer, bloom, points, mat, rings = [], frames = [], edges = [];
+let renderer, scene, camera, composer, renderPass, bloom, points, mat, rings = [], frames = [], edges = [];
 
 let glOK = true;
 
@@ -461,7 +476,7 @@ const NOTE_ROOM = 104;
 
 function fitCamera() {
   const w = canvas.clientWidth, h = canvas.clientHeight;
-  renderer.setPixelRatio(Math.min(OG ? 1 : 1.75, devicePixelRatio || 1));
+  renderer.setPixelRatio(Math.min(OG ? 1 : view === "totals" ? 3 : 1.75, devicePixelRatio || 1));
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
@@ -470,24 +485,50 @@ function fitCamera() {
     bloom.setSize(w, h);
   }
   if (mat) mat.uniforms.uPx.value = 2.1 * renderer.getPixelRatio();
-  const box = new THREE.Box3;
-  G && G.pos.forEach((p, i) => {
-    box.expandByPoint(p.clone().addScalar(G.rad[i]));
-    box.expandByPoint(p.clone().addScalar(-G.rad[i]));
-  });
-  const size = box.getSize(new THREE.Vector3), mid = box.getCenter(new THREE.Vector3);
   const sb = $("scene").getBoundingClientRect();
   const h1 = $("head").querySelector("h1").getBoundingClientRect().bottom - sb.top;
   const slot = h1 + 14;
   $("scene").style.setProperty("--slot", slot + "px");
+  if (TK) fitTanks(w, h, sb, slot);
+  if (!G) return;
+  const box = new THREE.Box3;
+  G.pos.forEach((p, i) => {
+    box.expandByPoint(p.clone().addScalar(G.rad[i]));
+    box.expandByPoint(p.clone().addScalar(-G.rad[i]));
+  });
+  const size = box.getSize(new THREE.Vector3), mid = box.getCenter(new THREE.Vector3);
   const top = OG ? h * .42 : narrow() ? slot + NOTE_ROOM : $("head").getBoundingClientRect().bottom - sb.top - 40;
-  const bot = (narrow() && !OG ? $("clockBox") : OG ? $("figs") : $("when")).getBoundingClientRect().top - sb.top + (narrow() && !OG ? -44 : 6);
+  const bot = (narrow() || OG ? $("figs") : $("when")).getBoundingClientRect().top - sb.top + (narrow() && !OG ? -62 : 6);
   const band = Math.max(h * .3, bot - top), centre = (top + bot) / 2;
   camera.setViewOffset(w, h, 0, h / 2 - centre, w, h);
   const fov = camera.fov * Math.PI / 180;
   const fitH = (size.y + 6) / 2 / Math.tan(fov / 2) / (band / h), fitW = (size.x + 6) / 2 / Math.tan(fov / 2) / camera.aspect;
   cam.dist = Math.max(fitH, fitW) + size.z / 2;
   cam.target.copy(mid);
+}
+
+function fitTanks(w, h, sb, slot) {
+  const centers = {};
+  let cellW = 0;
+  document.querySelectorAll("#figs .fig").forEach(f => {
+    const r = f.getBoundingClientRect();
+    centers[f.dataset.k] = r.left - sb.left + r.width / 2;
+    cellW = r.width;
+  });
+  const head = $("head").getBoundingClientRect().bottom - sb.top;
+  const top = OG ? head + 20 : narrow() ? slot + NOTE_ROOM : head + 28;
+  const bottom = $("figs").getBoundingClientRect().top - sb.top - (narrow() ? 10 : 16);
+  TK.resize({
+    w,
+    h,
+    dpr: renderer.getPixelRatio(),
+    top,
+    bottom,
+    centers,
+    cellW
+  });
+  const G2 = TK.layout;
+  $("ticks").innerHTML = G2.ticks.map(t => `<span style="top:${t.y.toFixed(1)}px;left:${G2.axisX.toFixed(1)}px">$${t.b % 1 ? t.b.toFixed(1) : t.b}B</span>`).join("");
 }
 
 function placeCamera(now) {
@@ -601,6 +642,9 @@ function applyUpTo(t, fx) {
     fired.clear();
     fx = false;
   }
+  if (TK) {
+    if (!fx) TK.clear(); else TK.advance(ph, t, fx === "live" ? s => liveKeys.has(s.key) : null, performance.now());
+  }
   let bursts = 0;
   while (cursor < evs.length && shownT(evs[cursor]) <= t) {
     const e = evs[cursor++];
@@ -609,11 +653,12 @@ function applyUpTo(t, fx) {
     if (tn && (tn.role === "venue" || tn.role === "recovered") && isSide(fn)) inOf.set(tn.addr, (inOf.get(tn.addr) || 0) + e.usd);
     if (!fx || fired.has(e.key) || fx === "live" && !e.liveAt) continue;
     fired.add(e.key);
-    if (G && tn && G.index.has(tn.addr) && e.usd >= 1e8 && bursts++ < 3) {
-      ring(G.index.get(tn.addr), 16765562, 4 + Math.log10(e.usd / 1e8) * 10);
-      if (fn && G.index.has(fn.addr)) ring(G.index.get(fn.addr), 16734794, 7);
+    if (e.usd >= 1e8 && bursts++ < 3) {
+      if (G && tn && G.index.has(tn.addr)) ring(G.index.get(tn.addr), 16765562, 4 + Math.log10(e.usd / 1e8) * 10);
+      if (G && fn && G.index.has(fn.addr)) ring(G.index.get(fn.addr), 16734794, 7);
       cam.shake = Math.min(1.6, cam.shake + .5);
       pulse = 1;
+      if (TK) TK.bump(1.5 + Math.log10(e.usd / 1e8) * 2);
     }
     if (e.liveAt && e.usd >= 1e6 && isSide(fn)) toast(`${Date.now() - e.t < 9e4 ? "Just now" : ago(e.t) + " ago"}: ${usd(e.usd)} ${e.sym} from ${nameAt(e.from)} to ${nameAt(e.to)}`);
   }
@@ -645,7 +690,9 @@ const MILESTONES = [ {
 }, {
   t: "20:24:23",
   kind: "attack",
-  title: "$2.8 billion leaves in one transfer",
+  sum: "0x53bd38b8",
+  to: "0x5227f6",
+  title: "{v} leaves in one transfer",
   plain: "167,464 Ether and dozens of tokens in one go. Fee: under $1.",
   tx: "sweep 0x8a179be4 → Exploiter 2 · tx 0x53bd…e2f3"
 }, {
@@ -664,7 +711,9 @@ const MILESTONES = [ {
 }, {
   t: "20:39:00",
   kind: "attack",
-  title: "$440 million in Ether is parked",
+  sum: "0x551d7961",
+  to: "0x8532fa",
+  title: "{v} in Ether is parked",
   plain: "195,460 Ether goes to a fresh wallet. It hasn't moved since.",
   tx: "E2 → E8 0x8532…43d4 · tx 0x551d…2c76"
 }, {
@@ -785,14 +834,22 @@ function buildMilestones() {
       count: 1,
       addrs: [ short(z.addr) ],
       title: victim ? `${z.issuer} blocks ${n.plain} itself` : `${z.issuer} freezes ${freezeWho(n)}`,
-      plain: victim ? "Nothing more can be pulled through it." : `Its ${token} can't move now. Those dots turn blue.`,
+      plain: victim ? "Nothing more can be pulled through it." : `Its ${token} can't move any more.`,
       tx: `${ev}(${short(z.addr)}) · tx ${short(z.hash)}`
     });
   }
+  const sumOf = m => {
+    let v = 0;
+    for (const e of S.events.values()) if (e.hash.startsWith(m.sum) && e.to.startsWith(m.to)) v += valueOf(e);
+    return v;
+  };
   MS = MILESTONES.map(m => ({
     ...m,
-    at: Date.parse(m.at || "2026-10-29T" + m.t + "Z")
+    at: Date.parse(m.at || "2026-10-29T" + m.t + "Z"),
+    title: m.sum ? m.title.replace("{v}", big(sumOf(m))) : m.title
   })).concat(fz).sort((a, b) => a.at - b.at);
+  const sweep = MILESTONES.find(m => m.sum === "0x53bd38b8");
+  if (sweep && $("sweepAmt")) $("sweepAmt").textContent = big(sumOf(sweep));
   MS.forEach((m, i) => m.no = i + 1);
 }
 
@@ -820,87 +877,208 @@ const captionFor = t => {
   return m && t - m.at < 25 * 6e4 ? m : null;
 };
 
+function figsAt(t) {
+  const L = tankLevels(TS.steps, t);
+  let vIn = 0, vOut = 0;
+  for (const s of TS.steps) {
+    if (s.t > t) break;
+    if (s.b === "V") vIn += s.v;
+    if (s.a === "V") vOut += s.v;
+  }
+  return {
+    ...L,
+    vIn,
+    vOut
+  };
+}
+
 function renderFigures() {
-  if (!T) return;
-  $("fOut").textContent = usd(T.out);
-  $("fFz").textContent = usd(T.frozen);
-  $("fFree").textContent = usd(Math.max(0, T.held - T.frozen));
-  $("fSvc").textContent = usd(T.movedOn);
+  if (!TK) return;
+  const F = figsAt(live ? Infinity : ph);
+  const fig = v => {
+    v = Math.max(0, v);
+    return !narrow() ? usd(v) : v >= 1e9 ? "$" + (v / 1e9).toFixed(1) + "B" : v >= 1e6 ? "$" + Math.round(v / 1e6) + "M" : usd(v);
+  };
+  $("fB").textContent = fig(F.B);
+  $("fM").textContent = fig(F.M);
+  $("fF").textContent = fig(F.F);
+  $("fV").textContent = fig(F.V);
+  $("fR").textContent = fig(F.R);
+  $("fX").textContent = fig(F.X);
+  const m = F.by.M, mt = m.eth + m.usd + m.tok;
+  $("dM").textContent = mt > 1e7 && m.eth / mt > .5 ? `${Math.round(m.eth / mt * 100)}% of it Ether, which nobody can freeze.` : "Ether and tokens nobody has frozen.";
+  $("dV").textContent = F.vIn > 1e6 ? `${usd(F.vIn)} went in, ${usd(F.vOut)} came back out.` : "Exchanges and lenders, net of what came back.";
   $("when").classList.toggle("rep", !live);
   $("whenTxt").textContent = live ? "now, live" : "at " + hms(ph) + " UTC in the replay";
 }
 
 function renderHeadline() {
-  const L = totalsAt(S, null, START);
-  $("hOut").textContent = usd(L.out, true).replace(/(\.\d)\d/, "$1");
+  $("hOut").textContent = big(tankLevels(TS.steps).B);
 }
 
 const sc = $("sc"), sx = sc.getContext("2d");
 
-let histBins = null;
+const AREA = [ [ "M", "#ff3d33" ], [ "F", "#8fd6ff" ], [ "V", "#d5dbe4" ], [ "R", "#3fe08f" ], [ "X", "#8d97a6" ] ];
+
+const NIGHT = 4.5 * 36e5;
+
+function timeScale(w) {
+  const t0 = START, span = Math.max(6e4, endTime() - t0);
+  if (span <= 9 * 36e5) return {
+    X: t => (t - t0) / span * w,
+    inv: x => t0 + x / w * span,
+    brk: null
+  };
+  const wN = w * .8, gap = 10, rest = span - NIGHT;
+  return {
+    X: t => t <= t0 + NIGHT ? (t - t0) / NIGHT * wN : wN + gap + (t - t0 - NIGHT) / rest * (w - wN - gap),
+    inv: x => x <= wN ? t0 + x / wN * NIGHT : t0 + NIGHT + Math.max(0, x - wN - gap) / (w - wN - gap) * rest,
+    brk: wN + gap / 2
+  };
+}
+
+const AX = 13, AT = 12;
+
+let areaCache = null;
 
 function drawScrub() {
   const w = sc.clientWidth, h = sc.clientHeight, d = Math.min(2, devicePixelRatio || 1);
-  if (!w) return;
+  if (!w || !TK) return;
   if (sc.width !== Math.round(w * d) || sc.height !== Math.round(h * d)) {
     sc.width = Math.round(w * d);
     sc.height = Math.round(h * d);
-    histBins = null;
+    areaCache = null;
   }
   sx.setTransform(d, 0, 0, d, 0, 0);
   sx.clearRect(0, 0, w, h);
-  const t0 = START, t1 = endTime(), X = t => (t - t0) / (t1 - t0) * w;
-  const B = Math.max(40, Math.floor(w / 4));
-  if (!histBins || histBins.length !== B || histBins.evs !== evs.length || histBins.t1 < t1 - 6e4) {
-    histBins = new Float64Array(B);
-    histBins.evs = evs.length;
-    histBins.t1 = t1;
-    for (const e of evs) {
-      if (e.t < t0) continue;
-      histBins[Math.min(B - 1, Math.floor((e.t - t0) / (t1 - t0) * B))] += e.usd;
+  const TSC = timeScale(w), H = h - AX - AT, top = TK.finalTaken() * 1.04 || 1, Y = v => AT + H - v / top * H;
+  if (!areaCache || areaCache.w !== w || areaCache.n !== TS.steps.length || areaCache.t1 < endTime() - 6e4) {
+    const cols = [];
+    for (let x = 0; x <= w + 1; x += 2) {
+      const L = TK.levelsAt(TSC.inv(Math.min(w, x))), st = [ 0 ];
+      let acc = 0;
+      for (const [k] of AREA) {
+        acc += Math.max(0, L[k]);
+        st.push(acc);
+      }
+      cols.push({
+        x: Math.min(w, x),
+        st
+      });
     }
+    areaCache = {
+      w,
+      n: TS.steps.length,
+      t1: endTime(),
+      cols
+    };
   }
-  const mx = Math.log10(Math.max(...histBins, 1e4) / 1e4) || 1;
-  for (let i = 0; i < B; i++) {
-    if (!histBins[i]) continue;
-    const v = Math.log10(Math.max(histBins[i], 1e4) / 1e4) / mx, bh = Math.max(2, v * (h - 20));
-    const past = t0 + (i + .5) / B * (t1 - t0) <= ph;
-    sx.fillStyle = past ? "#f3b23a" : "rgba(255,255,255,.16)";
-    sx.fillRect(i / B * w, h - 14 - bh, Math.max(1, w / B - 1.5), bh);
+  const band = (li, a) => {
+    sx.beginPath();
+    areaCache.cols.forEach((c, i) => i ? sx.lineTo(c.x, Y(c.st[li + 1])) : sx.moveTo(c.x, Y(c.st[li + 1])));
+    for (let i = areaCache.cols.length - 1; i >= 0; i--) sx.lineTo(areaCache.cols[i].x, Y(areaCache.cols[i].st[li]));
+    sx.closePath();
+    sx.globalAlpha = a;
+    sx.fill();
+  };
+  const cut = live ? w : TSC.X(ph);
+  for (const [past, a] of [ [ false, .2 ], [ true, .82 ] ]) {
+    sx.save();
+    sx.beginPath();
+    past ? sx.rect(0, 0, cut, h) : sx.rect(cut, 0, w - cut, h);
+    sx.clip();
+    AREA.forEach(([, c], li) => {
+      sx.fillStyle = c;
+      band(li, a);
+    });
+    sx.restore();
   }
-  sx.fillStyle = "rgba(255,255,255,.1)";
-  sx.fillRect(0, h - 13, w, 1);
+  sx.globalAlpha = 1;
+  sx.fillStyle = "rgba(255,255,255,.14)";
+  sx.fillRect(0, AT + H, w, 1);
   sx.font = "10px " + css("mono");
   sx.fillStyle = "#8d97a6";
+  sx.textAlign = "left";
   sx.textAlign = "center";
-  const step = t1 - t0 > 10 * 36e5 ? 72e5 : 36e5;
-  for (let t = Math.ceil(t0 / step) * step; t < t1; t += step) {
-    const x = X(t);
-    if (x > 20 && x < w - 34) sx.fillText(hms(t).slice(0, 5), x, h - 1);
+  const t1 = endTime(), hour = 36e5;
+  const tickStep = TSC.brk ? hour : t1 - START > 6 * hour ? hour : 18e5;
+  for (let t = Math.ceil(START / tickStep) * tickStep; t < Math.min(t1, TSC.brk ? START + NIGHT : t1); t += tickStep) {
+    const x = TSC.X(t);
+    if (x > 40 && x < w - 40) sx.fillText(hms(t).slice(0, 5), x, h - 1);
+  }
+  if (TSC.brk) {
+    const bx = TSC.brk;
+    sx.fillStyle = css("bg") || "#04050a";
+    sx.fillRect(bx - 3, 0, 6, h - AX);
+    sx.strokeStyle = "#8d97a6";
+    sx.lineWidth = 1;
+    for (const o of [ -3, 3 ]) {
+      sx.beginPath();
+      sx.moveTo(bx + o - 2, AT + H + 4);
+      sx.lineTo(bx + o + 2, AT + H - 4);
+      sx.stroke();
+    }
+    sx.fillStyle = "#8d97a6";
+    sx.textAlign = "right";
+    sx.fillText(new Date(t1).toISOString().slice(5, 10).replace("-", "/") + " " + hms(t1).slice(0, 5), w - 2, h - 1);
+  } else {
+    sx.textAlign = "right";
+    sx.fillText("now", w - 2, h - 1);
   }
   for (const m of MS) {
-    const x = X(m.at);
+    const x = TSC.X(m.at);
     sx.fillStyle = m.kind === "freeze" ? "#8fd6ff" : m.kind === "report" ? "#a98bff" : "#ffffff";
+    sx.globalAlpha = m.at <= ph || live ? 1 : .45;
     sx.beginPath();
-    sx.arc(x, h - 13, m === noteShown ? 4 : 2.6, 0, 7);
+    sx.arc(x, 5, m === noteShown ? 3.6 : 2.2, 0, 7);
     sx.fill();
   }
-  sx.fillStyle = "#fff";
-  sx.fillRect(X(ph) - 1, 2, 2, h - 16);
-  sx.textAlign = "right";
-  sx.fillText("now", w - 2, h - 1);
+  sx.globalAlpha = 1;
+  if (!live) {
+    sx.fillStyle = "#fff";
+    sx.fillRect(cut - 1, 0, 2, AT + H);
+  }
+}
+
+function scrubTime(clientX) {
+  const b = $("scrub").getBoundingClientRect();
+  const x = Math.max(0, Math.min(b.width, clientX - b.left));
+  return {
+    t: timeScale(b.width).inv(x),
+    end: x > b.width - 3
+  };
 }
 
 function scrubTo(clientX) {
-  const b = $("scrub").getBoundingClientRect();
-  const k = Math.max(0, Math.min(1, (clientX - b.left) / b.width));
-  if (k > .995) {
+  const {t, end} = scrubTime(clientX);
+  if (end) {
     goLive();
     return;
   }
   setLive(false);
-  applyUpTo(START + k * (endTime() - START), false);
+  applyUpTo(t, false);
   showNote(captionFor(ph));
+}
+
+function scrubTip(e) {
+  if (!TK) return;
+  const {t} = scrubTime(e.clientX), F = figsAt(t);
+  const b = $("scrub").getBoundingClientRect(), TSC = timeScale(b.width), x = e.clientX - b.left;
+  const pin = MS.find(m => Math.abs(TSC.X(m.at) - x) < 5);
+  const row = (k, name, v) => `<span class="sw" style="background:${{
+    B: "#f3b23a",
+    M: "#ff3d33",
+    F: "#8fd6ff",
+    V: "#d5dbe4",
+    R: "#3fe08f",
+    X: "#8d97a6"
+  }[k]}"></span>${name} ${usd(Math.max(0, v))}`;
+  const tip = $("tip");
+  tip.innerHTML = `<b>${hms(t).slice(0, 5)} UTC${pin ? " · " + esc(pin.title) : ""}</b>` + [ row("B", "Taken", F.B), row("M", "Still movable", F.M), row("F", "Frozen", F.F), row("V", "In swaps and loans", F.V), row("R", "Given back", F.R), row("X", "Not traced", F.X) ].join("<br>");
+  tip.hidden = false;
+  const s = $("scene").getBoundingClientRect(), tw = tip.offsetWidth, th = tip.offsetHeight;
+  tip.style.left = Math.max(8, Math.min(s.width - tw - 8, e.clientX - s.left - tw / 2)) + "px";
+  tip.style.top = Math.max(8, b.top - s.top - th - 10) + "px";
 }
 
 let dragging = false;
@@ -909,11 +1087,16 @@ $("scrub").addEventListener("pointerdown", e => {
   dragging = true;
   $("scrub").setPointerCapture(e.pointerId);
   setPlaying(false);
+  $("tip").hidden = true;
   scrubTo(e.clientX);
 });
 
 $("scrub").addEventListener("pointermove", e => {
-  if (dragging) scrubTo(e.clientX);
+  if (dragging) scrubTo(e.clientX); else if (!touch) scrubTip(e);
+});
+
+$("scrub").addEventListener("pointerleave", () => {
+  if (!dragging) $("tip").hidden = true;
 });
 
 $("scrub").addEventListener("pointerup", () => {
@@ -1024,24 +1207,40 @@ function frame(now) {
     let step = dt * 1e3 * speed;
     const nx = evs[cursor];
     if (!nx || shownT(nx) - ph > speed * 15e3) step *= 8;
-    if (now < slowUntil) step *= .15;
+    if (now < holdUntil) step = 0; else if (now < slowUntil) step *= .15;
     const target = ph + step;
-    if (target >= endTime()) goLive(); else applyUpTo(target, true);
+    if (target >= endTime()) goLive(); else if (step) applyUpTo(target, true);
     const m = captionFor(ph);
     if (m !== noteShown) {
       showNote(m);
-      if (m) slowUntil = now + 3200;
+      if (m) {
+        slowUntil = now + 3400;
+        if (m.kind !== "report") holdUntil = now + 1900;
+      }
     }
   } else if (live) applyUpTo(endTime(), "live");
   if (Tdirty && (!frame.tAt || now - frame.tAt > 150)) {
-    T = totalsAt(S, live ? null : ph, START);
+    if (view === "map" && G) T = totalsAt(S, live ? null : ph, START);
     Tdirty = live;
     frame.tAt = now;
     renderFigures();
   }
   $("clock").textContent = hms(ph);
   $("clockS").textContent = (live ? "live · " : "replay · ") + new Date(ph).toISOString().slice(0, 10) + " UTC";
-  if (glOK && built) {
+  if (glOK && built && view === "totals") {
+    bloom.strength = narrow() ? .5 : .6;
+    bloom.radius = .4;
+    bloom.threshold = .36;
+    TK.frame(now, live ? Infinity : ph);
+    renderPass.scene = TK.scene;
+    renderPass.camera = TK.cam;
+    composer.render();
+  } else if (glOK && built && G) {
+    renderPass.scene = scene;
+    renderPass.camera = camera;
+    bloom.strength = narrow() ? .8 : .9;
+    bloom.radius = .18;
+    bloom.threshold = .28;
     pulse *= .93;
     mat.uniforms.uT.value = ph - START;
     mat.uniforms.uClock.value = now / 1e3;
@@ -1245,7 +1444,9 @@ async function refreshLoop() {
       const now = Date.now();
       add.events.forEach(e => {
         e.liveAt = now;
+        liveKeys.add(e.key);
       });
+      add.freezes.forEach(z => liveKeys.add(z.key));
     }
     if (add.events.length || S.nodes.size !== nodesBefore) rebuild();
     if (!first) for (const z of add.freezes) {
@@ -1266,20 +1467,52 @@ async function refreshLoop() {
 
 function rebuild() {
   sortEvents();
+  TS = tankSteps(S, START);
+  TK.setSteps(TS.steps);
+  areaCache = null;
   const t = ph;
   cursor = 0;
   outOf.clear();
   inOf.clear();
   ph = START - 1;
-  if (glOK && built) {
+  if (glOK && built && G) {
     G = buildGraph();
     firstSeenFor();
     makePoints(buildParticles());
     buildLabels();
-    fitCamera();
   }
+  if (glOK && built) fitCamera();
   applyUpTo(t, live ? "live" : false);
 }
+
+function ensureMap() {
+  if (G || !glOK || !built) return;
+  G = buildGraph();
+  firstSeenFor();
+  makePoints(buildParticles());
+  buildLabels();
+  const t = ph;
+  cursor = 0;
+  outOf.clear();
+  inOf.clear();
+  ph = START - 1;
+  applyUpTo(t, false);
+}
+
+function setView(v) {
+  view = v;
+  document.querySelectorAll("#views button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === v)));
+  document.body.classList.toggle("v-map", v === "map");
+  if (v === "map") ensureMap();
+  $("unitTxt").textContent = v === "map" ? "$" + UNIT / 1e3 + ",000" : "$1 million";
+  $("unitTxt2").textContent = v === "map" ? "$" + UNIT / 1e3 + "K" : "$1M";
+  $("tip").hidden = true;
+  if (glOK && built) fitCamera();
+  Tdirty = true;
+  renderFigures();
+}
+
+document.querySelectorAll("#views button").forEach(b => b.addEventListener("click", () => setView(b.dataset.v)));
 
 async function boot() {
   const data = await fetchData();
@@ -1294,18 +1527,18 @@ async function boot() {
   }));
   seedText();
   snapLine();
-  if (UNIT !== 25e3) {
-    $("unitTxt").textContent = "$" + UNIT / 1e3 + ",000";
-    $("unitTxt2").textContent = "$" + UNIT / 1e3 + "K";
-  }
   sortEvents();
+  TS = tankSteps(S, START);
+  TK = makeTanks({
+    reduced: reduced || OG
+  });
+  TK.setSteps(TS.steps);
   buildMilestones();
   renderHeadline();
   if (glOK) {
-    G = buildGraph();
-    firstSeenFor();
     composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene, camera));
+    renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
     composer.addPass(new ShaderPass({
       uniforms: {
         tDiffuse: {
@@ -1318,14 +1551,13 @@ async function boot() {
     bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), narrow() ? .8 : .9, .18, .28);
     composer.addPass(bloom);
     composer.addPass(new OutputPass);
-    makePoints(buildParticles());
-    buildLabels();
-    fitCamera();
     built = true;
     new ResizeObserver(() => {
       if (G && narrow() !== G.vert) rebuild(); else fitCamera();
+      areaCache = null;
     }).observe(canvas);
   }
+  setView(view);
   const share = location.href.split(/[?#]/)[0];
   $("shareLi").href = "https://www.linkedin.com/sharing/share-offsite/?url=" + encodeURIComponent(share);
   $("copyLink").addEventListener("click", async () => {
@@ -1342,7 +1574,9 @@ async function boot() {
     const io = new IntersectionObserver(es => {
       if (es.some(x => x.isIntersecting)) {
         io.disconnect();
-        setTimeout(() => setPlaying(true), 1200);
+        setTimeout(() => {
+          if (!live && !playing && ph === START) setPlaying(true);
+        }, 1200);
       }
     }, {
       threshold: .4
@@ -1359,6 +1593,23 @@ async function boot() {
 window.tracker = {
   S,
   totalsAt,
+  figsAt,
+  get TK() {
+    return TK;
+  },
+  get TS() {
+    return TS;
+  },
+  get view() {
+    return view;
+  },
+  setView,
+  seek(t, play) {
+    setLive(false);
+    applyUpTo(t, false);
+    showNote(captionFor(ph));
+    setPlaying(!!play);
+  },
   get ph() {
     return ph;
   },
