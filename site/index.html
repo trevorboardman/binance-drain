@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-ErkHxpvOiQoombz+I9Bo/x6Psi6zBH81BreGxgkK2GQ=' https://cdn.jsdelivr.net/npm/three@0.160.0/; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-ErkHxpvOiQoombz+I9Bo/x6Psi6zBH81BreGxgkK2GQ=' https://cdn.jsdelivr.net/npm/three@0.160.0/; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self'; child-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>$6 billion stolen from Binance: where it went</title>
@@ -82,7 +82,8 @@ h1 .amt { color: var(--vault); font-stretch: 100%; font-variant-numeric: tabular
 .fig .s { display: none; }
 .ticks { position: absolute; inset: 0; pointer-events: none; }
 .band-names { position: absolute; inset: 0; pointer-events: none; }
-.band-names span { position: absolute; pointer-events: auto; }
+.band-names span { position: absolute; pointer-events: auto; -webkit-tap-highlight-color: transparent; }
+.scene canvas.gl, .ticks, .band-names, .figs { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .band-key { position: absolute; right: 22px; top: 0; visibility: hidden; background: var(--bg); padding: 2px 0 4px 8px; display: flex; flex-direction: column-reverse; gap: 5px; font: 500 10.5px/1.2 var(--mono); color: var(--mute); pointer-events: none; }
 .band-key span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .band-key i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
@@ -347,7 +348,7 @@ body.og .head { top: 34px; }
     <div class="head pad" id="head">
       <p class="kicker">Nine blockchains · <span class="long">Thursday </span>29 Oct<span class="long">ober</span> 2026</p>
       <h1><span class="amt" id="hOut">$6.2 billion</span> stolen from Binance</h1>
-      <p class="dek plain-only"><span class="tot-only">In one evening its own wallets paid an attacker on nine blockchains, most of it within 20 minutes. Each tank shows where it is now.</span><span class="map-only">Every dot <span class="dot-key"></span> is <b id="unitTxt">$1 million</b> of it.</span><a class="howlink" href="#how">How they did it ↓</a></p>
+      <p class="dek plain-only"><span class="tot-only">In one evening its own wallets paid an attacker on nine blockchains, most of it within 20 minutes. Each tank shows where it is now, and every drop of liquid is $1 million of it.</span><span class="map-only">Every dot <span class="dot-key"></span> is <b id="unitTxt">$1 million</b> of it.</span><a class="howlink" href="#how">How they did it ↓</a></p>
       <p class="dek tech-only"><span class="map-only">1 dot = <span id="unitTxt2">$1M</span>. </span>Coins at today's prices. Ethereum, Bitcoin, Tron, XRP Ledger, Solana, Arbitrum, Optimism, Base and Avalanche. EIP-7702 delegation on Binance 14, one-call sweep; the other chains paid out by Binance's own wallets; onward flows of $1M+ followed four hops.</p>
     </div>
     <div class="clock pad" id="clockBox"><div class="t" id="clock">20:00:00</div><div class="s" id="clockS">replay · UTC</div></div>
@@ -513,6 +514,6 @@ body.og .head { top: 34px; }
   </footer>
 </main>
 
-<script type="module" src="app.js?v=44"></script>
+<script type="module" src="app.js?v=54"></script>
 </body>
 </html>

@@ -12,7 +12,7 @@ import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 
 import { makeState, addNode, loadData, node, isSide, isAddr, isHash, addrUrl, txUrl, chainOf, CHAINS, totalsAt, tankSteps, tankLevels, assetClass, STABLE, short, sleep, ATTACKER, B14, DELEGATE, SEEDS } from "./core.js?v=12";
 
-import { makeTanks, DOT, COLS, BANDS, BAND_NAME, BAND_SHADE } from "./flow.js?v=10";
+import { makeTanks, DOT, COLS, BANDS, BAND_NAME, BAND_SHADE } from "./flow.js?v=20";
 
 const Q = new URLSearchParams(location.search);
 
@@ -667,17 +667,27 @@ function onTilt(e) {
   TK.tilt(a === 90 ? -e.beta : a === 270 ? e.beta : a === 180 ? -e.gamma : e.gamma);
 }
 
-let tiltAsked = false;
+let tiltState = "ask";
 
 $("scene").addEventListener("pointerdown", ev => {
   if (view !== "totals" || !TK || reduced) return;
   const r = $("scene").getBoundingClientRect();
-  if (!TK.poke(ev.clientX - r.left, ev.clientY - r.top) || tiltAsked) return;
-  tiltAsked = true;
+  TK.poke(ev.clientX - r.left, ev.clientY - r.top);
+});
+
+$("scene").addEventListener("click", ev => {
   const D = window.DeviceOrientationEvent;
-  if (D && typeof D.requestPermission === "function") D.requestPermission().then(s => {
-    if (s === "granted") addEventListener("deviceorientation", onTilt);
-  }).catch(e => console.error("[tracker] tilt permission", e));
+  if (tiltState !== "ask" || view !== "totals" || !TK || reduced || !D || typeof D.requestPermission !== "function") return;
+  const r = $("scene").getBoundingClientRect();
+  if (!TK.hit(ev.clientX - r.left, ev.clientY - r.top)) return;
+  tiltState = "asking";
+  D.requestPermission().then(s => {
+    tiltState = s;
+    if (s === "granted") addEventListener("deviceorientation", onTilt); else console.warn("[tracker] tilt permission:", s);
+  }).catch(e => {
+    tiltState = "ask";
+    console.error("[tracker] tilt permission", e);
+  });
 });
 
 if (!reduced && window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission !== "function") addEventListener("deviceorientation", onTilt);
@@ -1550,6 +1560,7 @@ function frame(now) {
     const nx = evs[cursor];
     if (!nx || shownT(nx) - ph > speed * 15e3) step *= 8;
     if (now < holdUntil) step = 0; else if (now < slowUntil) step *= .15;
+    if (view === "totals" && TK) step *= TK.pace();
     const target = ph + step;
     if (target >= endTime()) goLive(); else if (step) applyUpTo(target, true);
     const m = captionFor(ph);
@@ -2119,6 +2130,9 @@ async function boot() {
 }
 
 window.tracker = {
+  get tiltState() {
+    return tiltState;
+  },
   S,
   totalsAt,
   figsAt,
