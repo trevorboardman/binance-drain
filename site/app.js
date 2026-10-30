@@ -985,6 +985,13 @@ const MILESTONES = [ {
   plain: "Moved out of the attacker's wallet by a transaction sent from Ethereum, the way Arbitrum's Security Council froze stolen funds in April.",
   tx: "arb 0x3e2b…32d5 → 0x…0da0, 8,426 ETH + 74.6M ARB · tx 0x410a…5f70, 0x75e8…edb6"
 }, {
+  at: "2026-10-30T02:10:00Z",
+  kind: "report",
+  title: "TRM Labs: North Korea",
+  plain: "It names TraderTraitor, North Korea’s state hackers, with high confidence.",
+  tx: "reported time (TRM Labs)",
+  reported: true
+}, {
   at: "2026-10-30T02:25:00Z",
   kind: "report",
   title: "Binance: a hacked engineer's laptop",
