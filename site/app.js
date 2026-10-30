@@ -81,7 +81,7 @@ let tech = false;
 
 const narrow = () => innerWidth < 760;
 
-const plainOf = n => n.role === "hop" ? "Attacker wallet" + (chainOf(n.addr) === "eth" ? "" : " (" + CHAINS[chainOf(n.addr)].name + ")") : n.plain;
+const plainOf = n => n.grp ? n.plain : n.role === "hop" ? "Attacker wallet" + (chainOf(n.addr) === "eth" ? "" : " (" + CHAINS[chainOf(n.addr)].name + ")") : n.plain;
 
 const nameOf = n => !n ? "" : tech ? n.label : narrow() && n.mini || plainOf(n);
 
@@ -132,45 +132,124 @@ function lane(n) {
   return -1;
 }
 
+const COL_NAME = [ "Binance's wallets", "Attacker's wallets", "Moved on", "Moved on again", "Where it ended" ];
+
+const ETH_EACH = 5;
+
+function col(n) {
+  if (n.role === "victim") return 0;
+  if (n.role === "hub" || n.role === "inflow") return 1;
+  if (n.role === "hop") return n.depth >= 2 ? 3 : 2;
+  if (n.role === "venue" || n.role === "recovered" || n.role === "seized") return 4;
+  return -1;
+}
+
+const bandChain = c => (narrow() ? [ "eth", "btc" ] : [ "eth", "btc", "tron", "xrpl", "sol" ]).includes(c) ? c : "more";
+
+const chainName = c => c === "more" ? "other chains" : CHAINS[c] ? CHAINS[c].name : c;
+
+const sumBy = (m, n) => n.grp ? n.grp.reduce((v, x) => v + (m.get(x.addr) || 0), 0) : m.get(n.addr) || 0;
+
 function buildGraph() {
   const flowOf = new Map;
   for (const e of S.events.values()) for (const a of [ e.from, e.to ]) {
     const n = node(S, a);
     if (n) flowOf.set(n.addr, (flowOf.get(n.addr) || 0) + e.usd);
   }
-  const list = [ ...S.nodes.values() ].filter(n => lane(n) >= 0 && (flowOf.get(n.addr) || 0) > 0).sort((a, b) => (flowOf.get(b.addr) || 0) - (flowOf.get(a.addr) || 0)).slice(0, MAXN);
-  const index = new Map(list.map((n, i) => [ n.addr, i ]));
+  const flow = n => flowOf.get(n.addr) || 0;
+  const all = [ ...S.nodes.values() ].filter(n => col(n) >= 0 && flow(n) > 0).sort((a, b) => flow(b) - flow(a));
+  const groups = new Map, ethSeen = new Map;
+  for (const n of all) {
+    const c = col(n), ch = n.addr.startsWith("venue:") ? "eth" : chainOf(n.addr);
+    let key;
+    if (ch === "eth") {
+      const k = (ethSeen.get(c) || 0) + 1;
+      ethSeen.set(c, k);
+      key = k <= (narrow() ? 2 : ETH_EACH) || !narrow() && (n.role === "victim" || n.role === "venue" || n.role === "recovered") ? n.addr : "eth-rest:" + c;
+    } else key = bandChain(ch) + ":" + c;
+    if (!groups.has(key)) groups.set(key, {
+      key,
+      c,
+      band: bandChain(ch),
+      members: []
+    });
+    groups.get(key).members.push(n);
+  }
+  const list = [], index = new Map, colOf = [], bandOf = [];
+  for (const g of groups.values()) {
+    const rep = g.members[0];
+    let n = rep;
+    if (g.members.length > 1 || g.key.startsWith("eth-rest:")) {
+      const where = g.key.startsWith("eth-rest:") ? "Ethereum" : chainName(g.band);
+      const rest = g.key.startsWith("eth-rest:");
+      const plain = rep.role === "victim" ? rest ? "Other Binance wallets" : `Binance wallets (${where})` : rep.role === "venue" ? rest ? "Other services" : `Services (${where})` : rep.role === "seized" || rep.role === "recovered" ? g.members.length > 1 ? "Given back or locked" : rep.plain : rest ? "Other attacker wallets" : `Attacker wallets (${where})`;
+      n = {
+        addr: "grp:" + g.key,
+        role: rep.role,
+        depth: rep.depth,
+        plain,
+        label: plain + ` · ${g.members.length} wallet${g.members.length === 1 ? "" : "s"}`,
+        grp: g.members,
+        tokens: [],
+        eth: 0,
+        note: "",
+        link: rep.link || rep.addr,
+        seed: g.members.some(m => m.seed)
+      };
+    }
+    const i = list.length;
+    list.push(n);
+    colOf.push(g.c);
+    bandOf.push(BANDS.indexOf(g.band));
+    for (const m of g.members) index.set(m.addr, i);
+    index.set(n.addr, i);
+  }
+  if (list.length > MAXN) console.error("[tracker] map has", list.length, "nodes; the shader holds", MAXN);
   const vert = narrow();
-  const byLane = new Map;
-  list.forEach(n => {
-    const l = lane(n);
-    if (!byLane.has(l)) byLane.set(l, []);
-    byLane.get(l).push(n);
-  });
-  const pos = [], kind = [];
-  for (const [l, ns] of byLane) {
-    const order = [];
-    ns.forEach((n, i) => i % 2 ? order.push(n) : order.unshift(n));
-    order.forEach((n, i) => {
-      const spread = vert ? 22 : 34;
-      let across = order.length > 1 ? (i / (order.length - 1) - .5) * 2 * Math.min(spread, 8 + order.length * 4.2) : 0;
-      if (l === 1.55) across = -22;
-      if (l === 1.45) across = 22;
-      if (l === 1.6) across = 24 + i * 8;
-      const along = (l - 2) * (vert ? 24 : 34);
-      const z = (hash01(n.addr) - .5) * 26;
-      pos[index.get(n.addr)] = vert ? new THREE.Vector3(across * 2.1, -along * 1.05, z) : new THREE.Vector3(along, -across * .95, z);
+  const pos = [], heads = [];
+  const byCol = [ 0, 1, 2, 3, 4 ].map(c => list.map((_, i) => i).filter(i => colOf[i] === c).sort((a, b) => bandOf[a] - bandOf[b] || sumFlow(list[b]) - sumFlow(list[a])));
+  function sumFlow(n) {
+    return n.grp ? n.grp.reduce((v, x) => v + flow(x), 0) : flow(n);
+  }
+  if (!vert) {
+    const W = 120, P = 24;
+    byCol.forEach((ids, c) => ids.forEach((i, k) => {
+      pos[i] = new THREE.Vector3(c * W, ((ids.length - 1) / 2 - k) * P, 0);
+    }));
+    const top = Math.max(...byCol.map(ids => (ids.length - 1) / 2 * P)) + 16;
+    byCol.forEach((ids, c) => {
+      if (ids.length) heads.push({
+        text: COL_NAME[c],
+        p: new THREE.Vector3(c * W - 9, top, 0),
+        align: "l"
+      });
+    });
+  } else {
+    const PER = 5, X = 30, ROW = 30;
+    let y = 0;
+    byCol.forEach((ids, c) => {
+      if (!ids.length) return;
+      heads.push({
+        text: COL_NAME[c],
+        p: new THREE.Vector3(-(PER - 1) / 2 * X - 10, y + 13, 0),
+        align: "l"
+      });
+      ids.forEach((i, k) => {
+        const row = Math.floor(k / PER), inRow = Math.min(PER, ids.length - row * PER);
+        pos[i] = new THREE.Vector3((k % PER - (inRow - 1) / 2) * X, y - row * ROW, 0);
+      });
+      y -= Math.ceil(ids.length / PER) * ROW + 52;
     });
   }
-  list.forEach((n, i) => {
-    kind[i] = n.role === "victim" ? 0 : n.role === "venue" ? n.addr === BOTS ? 3 : 2 : n.role === "inflow" ? 4 : n.role === "recovered" ? 5 : 1;
-  });
+  const kind = list.map(n => n.role === "victim" ? 0 : n.role === "venue" ? n.addr === BOTS ? 3 : 2 : n.role === "inflow" ? 4 : n.role === "recovered" || n.role === "seized" ? 5 : 1);
   return {
     list,
     index,
     pos,
     kind,
+    heads,
     rad: new Array(list.length).fill(1.5),
+    maxR: vert ? 9.5 : 11,
     vert
   };
 }
@@ -198,6 +277,7 @@ function buildParticles() {
     const fn = node(S, e.from), tn = node(S, e.to);
     if (!fn || !tn || fn === tn || !G.index.has(fn.addr) || !G.index.has(tn.addr)) continue;
     const a = G.index.get(fn.addr), b = G.index.get(tn.addr);
+    if (a === b) continue;
     let n = Math.floor(e.usd / UNIT);
     if (rnd() < e.usd / UNIT - n) n++;
     if (!n) continue;
@@ -240,7 +320,8 @@ function buildParticles() {
     const fz = iss && freezeAt.get(last + ":" + iss);
     F[i] = fz ? Math.max(fz, arrive + 6e4) - START : 1e12;
   });
-  G.rad = G.list.map((_, i) => Math.max(1.1, 2.15 * Math.cbrt(Math.max(maxRes.get(i) || 0, made.get(i) || 0) * UNIT / 25e3 / 1e3)));
+  const most = G.list.map((_, i) => Math.max(maxRes.get(i) || 0, made.get(i) || 0)), top = Math.max(1, ...most);
+  G.rad = most.map(d => Math.max(1, G.maxR * Math.sqrt(d / top)));
   return {
     P,
     F
@@ -276,9 +357,9 @@ if (glOK) {
   $("scene").insertAdjacentHTML("beforeend", '<div class="nogl">This browser could not start the 3D view. The figures, the timeline and every transfer below still update live.</div>');
 }
 
-const VERT = `\nuniform float uT; uniform float uClock; uniform float uFlight; uniform float uPx; uniform float uPulse;\nuniform vec3 uPos[${MAXN}]; uniform float uRad[${MAXN}]; uniform float uKind[${MAXN}];\nattribute vec3 aN0; attribute vec3 aN1; attribute vec3 aT0; attribute vec2 aT1; attribute vec3 aC0; attribute vec3 aC1;\nattribute vec4 aSeed; attribute float aBirth; attribute float aFreeze; attribute float aMoves;\nvarying vec3 vCol; varying float vA;\nconst vec3 VAULT = vec3(1.0, 0.66, 0.18);\nconst vec3 ETH = vec3(0.62, 0.50, 1.0);\nconst vec3 USD = vec3(0.22, 0.90, 0.54);\nconst vec3 TOK = vec3(1.0, 0.62, 0.24);\nconst vec3 ICE = vec3(0.55, 0.85, 1.0);\nconst vec3 SVC = vec3(0.42, 0.46, 0.53);\nvec3 clsCol(float c) { return c < 0.5 ? ETH : c < 1.5 ? USD : TOK; }\nfloat nodeAt(int i) { return i == 0 ? aN0.x : i == 1 ? aN0.y : i == 2 ? aN0.z : i == 3 ? aN1.x : i == 4 ? aN1.y : aN1.z; }\nfloat timeAt(int i) { return i == 0 ? aT0.x : i == 1 ? aT0.y : i == 2 ? aT0.z : i == 3 ? aT1.x : aT1.y; }\nfloat clsAt(int i) { return i == 0 ? aC0.x : i == 1 ? aC0.y : i == 2 ? aC0.z : i == 3 ? aC1.x : i == 4 ? aC1.y : aC1.z; }\nvec3 rotY(vec3 p, float a) { float c = cos(a), s = sin(a); return vec3(c * p.x + s * p.z, p.y, -s * p.x + c * p.z); }\nvec3 home(int n, float spin) {\n  vec3 d = normalize(aSeed.xyz * 2.0 - 1.0 + vec3(0.001));\n  float k = uKind[n];\n  if (k > 1.5 && k < 3.5) {\n    float a = aSeed.x * 6.2832 + spin * 1.6 / (0.4 + aSeed.w);\n    float rr = uRad[n] * (0.35 + 0.65 * aSeed.w);\n    return uPos[n] + vec3(cos(a) * rr, (aSeed.y - 0.5) * 0.7, sin(a) * rr);\n  }\n\n  float r = uRad[n] * (0.8 + 0.2 * aSeed.w);\n  return uPos[n] + rotY(d * r, spin * (0.6 + aSeed.y));\n}\nvoid main() {\n  int moves = int(aMoves + 0.5);\n  int m = 0;\n  for (int i = 0; i < 5; i++) { if (i < moves && timeAt(i) <= uT) m = i + 1; }\n  int cur = int(nodeAt(m) + 0.5);\n  float frozen = step(aFreeze, uT);\n  float spin = mix(uClock * 0.05, aSeed.z * 6.2832, frozen);\n  vec3 p = home(cur, spin);\n  float flying = 0.0, flyDens = 1.0;\n  vec3 col = clsCol(clsAt(m));\n  if (m > 0) {\n    float dep = timeAt(m - 1);\n    float dur = uFlight * (0.55 + 0.9 * aSeed.y);\n    float f = (uT - dep) / dur;\n    if (f < 1.0) {\n      int prv = int(nodeAt(m - 1) + 0.5);\n\n      flyDens = max(clamp(1.6 / uRad[prv], 0.05, 1.0), clamp(1.6 / uRad[cur], 0.05, 1.0));\n      vec3 a = home(prv, spin), b = p;\n      float e = f * f * (3.0 - 2.0 * f);\n      vec3 lift = vec3(0.0, 6.0 + 18.0 * aSeed.x, (aSeed.z - 0.5) * 30.0);\n      vec3 c1 = a + (b - a) * 0.3 + lift, c2 = a + (b - a) * 0.7 + lift * 0.6;\n      float u = 1.0 - e;\n      p = u * u * u * a + 3.0 * u * u * e * c1 + 3.0 * u * e * e * c2 + e * e * e * b;\n      flying = 1.0 - abs(f * 2.0 - 1.0) * 0.4;\n    }\n  }\n  float k = uKind[cur];\n  if (m == 0 && k < 0.5) col = VAULT;\n  float arrived = m > 0 ? uT - timeAt(m - 1) : 1e9;\n  float dens = clamp(1.6 / uRad[cur], 0.05, 1.0);\n  float a = 0.55 * dens;\n  if (k > 1.5 && k < 3.5 && flying == 0.0) { col = mix(col, SVC, clamp(arrived / 400000.0, 0.0, 1.0)); a = mix(a, a * 0.35, clamp(arrived / 900000.0, 0.0, 1.0)); }\n  if (frozen > 0.5) { col = ICE; a = (0.5 + 0.2 * sin(uClock * 2.0 + aSeed.x * 40.0)) * dens; }\n  if (flying > 0.0) { col = mix(col, vec3(1.0), 0.2); a = 0.9 * flyDens; }\n  a *= step(aBirth, uT);\n  vCol = col * (1.0 + uPulse * 0.35);\n  vA = a;\n  vec4 mv = modelViewMatrix * vec4(p, 1.0);\n  gl_PointSize = uPx * (1.0 + flying * 0.8) * (140.0 / -mv.z);\n  gl_Position = projectionMatrix * mv;\n}`;
+const VERT = `\nuniform float uT; uniform float uClock; uniform float uFlight; uniform float uPx; uniform float uPulse;\nuniform vec3 uPos[${MAXN}]; uniform float uRad[${MAXN}]; uniform float uKind[${MAXN}];\nattribute vec3 aN0; attribute vec3 aN1; attribute vec3 aT0; attribute vec2 aT1; attribute vec3 aC0; attribute vec3 aC1;\nattribute vec4 aSeed; attribute float aBirth; attribute float aFreeze; attribute float aMoves;\nvarying vec3 vCol; varying float vA;\nconst vec3 VAULT = vec3(1.0, 0.66, 0.18);\nconst vec3 ETH = vec3(0.62, 0.50, 1.0);\nconst vec3 USD = vec3(0.22, 0.90, 0.54);\nconst vec3 TOK = vec3(1.0, 0.62, 0.24);\nconst vec3 ICE = vec3(0.55, 0.85, 1.0);\nconst vec3 SVC = vec3(0.42, 0.46, 0.53);\nvec3 clsCol(float c) { return c < 0.5 ? ETH : c < 1.5 ? USD : TOK; }\nfloat nodeAt(int i) { return i == 0 ? aN0.x : i == 1 ? aN0.y : i == 2 ? aN0.z : i == 3 ? aN1.x : i == 4 ? aN1.y : aN1.z; }\nfloat timeAt(int i) { return i == 0 ? aT0.x : i == 1 ? aT0.y : i == 2 ? aT0.z : i == 3 ? aT1.x : aT1.y; }\nfloat clsAt(int i) { return i == 0 ? aC0.x : i == 1 ? aC0.y : i == 2 ? aC0.z : i == 3 ? aC1.x : i == 4 ? aC1.y : aC1.z; }\nvec3 rotY(vec3 p, float a) { float c = cos(a), s = sin(a); return vec3(c * p.x + s * p.z, p.y, -s * p.x + c * p.z); }\nvec3 home(int n, float spin) {\n\n  float r = uRad[n] * sqrt(aSeed.w), a = aSeed.x * 6.2832;\n  return uPos[n] + vec3(cos(a) * r, sin(a) * r, 0.0);\n}\nvoid main() {\n  int moves = int(aMoves + 0.5);\n  int m = 0;\n  for (int i = 0; i < 5; i++) { if (i < moves && timeAt(i) <= uT) m = i + 1; }\n  int cur = int(nodeAt(m) + 0.5);\n  float frozen = step(aFreeze, uT);\n  float spin = mix(uClock * 0.05, aSeed.z * 6.2832, frozen);\n  vec3 p = home(cur, spin);\n  float flying = 0.0, flyDens = 1.0;\n  vec3 col = clsCol(clsAt(m));\n  if (m > 0) {\n    float dep = timeAt(m - 1);\n    float dur = uFlight * (0.55 + 0.9 * aSeed.y);\n    float f = (uT - dep) / dur;\n    if (f < 1.0) {\n      int prv = int(nodeAt(m - 1) + 0.5);\n\n      flyDens = max(clamp(1.6 / uRad[prv], 0.05, 1.0), clamp(1.6 / uRad[cur], 0.05, 1.0));\n      vec3 a = home(prv, spin), b = p;\n      float e = f * f * (3.0 - 2.0 * f);\n      vec3 dir = b - a;\n      vec3 lift = normalize(vec3(-dir.y, dir.x, 0.0) + vec3(0.0001)) * length(dir) * (0.05 + 0.1 * aSeed.x);\n      vec3 c1 = a + (b - a) * 0.3 + lift, c2 = a + (b - a) * 0.7 + lift * 0.6;\n      float u = 1.0 - e;\n      p = u * u * u * a + 3.0 * u * u * e * c1 + 3.0 * u * e * e * c2 + e * e * e * b;\n      flying = 1.0 - abs(f * 2.0 - 1.0) * 0.4;\n    }\n  }\n  float k = uKind[cur];\n  if (m == 0 && k < 0.5) col = VAULT;\n  float arrived = m > 0 ? uT - timeAt(m - 1) : 1e9;\n  float dens = clamp(2.2 / uRad[cur], 0.12, 1.0);\n  float a = 0.8 * dens;\n  if (k > 1.5 && k < 3.5 && flying == 0.0) { col = mix(col, SVC, clamp(arrived / 400000.0, 0.0, 1.0)); a = mix(a, a * 0.35, clamp(arrived / 900000.0, 0.0, 1.0)); }\n  if (frozen > 0.5) { col = ICE; a = 0.8 * dens; }\n  if (flying > 0.0) { a = 0.9 * flyDens; }\n  a *= step(aBirth, uT);\n  vCol = col * (1.0 + uPulse * 0.35);\n  vA = a;\n  vec4 mv = modelViewMatrix * vec4(p, 1.0);\n  gl_PointSize = uPx * (1.0 + flying * 0.4) * (140.0 / -mv.z);\n  gl_Position = projectionMatrix * mv;\n}`;
 
-const FRAG = `\nvarying vec3 vCol; varying float vA;\nvoid main() {\n  vec2 d = gl_PointCoord - 0.5;\n  float r = dot(d, d);\n  if (r > 0.25) discard;\n  float g = exp(-r * 14.0);\n\n  gl_FragColor = vec4(pow(vCol, vec3(2.2)) * g, vA * g);\n}`;
+const FRAG = `\nvarying vec3 vCol; varying float vA;\nvoid main() {\n  vec2 d = gl_PointCoord - 0.5;\n  float r = dot(d, d);\n  if (r > 0.25) discard;\n  float g = 1.0 - smoothstep(0.16, 0.25, r);\n\n  gl_FragColor = vec4(pow(vCol, vec3(2.2)) * g, vA * g);\n}`;
 
 function makePoints({P, F}) {
   if (points) {
@@ -315,7 +396,7 @@ function makePoints({P, F}) {
     fragmentShader: FRAG,
     transparent: true,
     depthWrite: false,
-    blending: THREE.AdditiveBlending,
+    blending: THREE.NormalBlending,
     uniforms: {
       uT: {
         value: 0
@@ -361,7 +442,21 @@ function buildFrames() {
   frames = [];
   edges.forEach(f => scene.remove(f));
   edges = [];
-  G.list.forEach((n, i) => {
+  if (FLAT) {
+    G.list.forEach((n, i) => {
+      const m = new THREE.Mesh(new THREE.RingGeometry(G.rad[i] + .3, G.rad[i] + (G.vert ? 1.1 : .8), 64), new THREE.MeshBasicMaterial({
+        color: G.kind[i] === 0 ? 15970874 : G.kind[i] === 5 ? 9426687 : 7041923,
+        transparent: true,
+        opacity: G.kind[i] === 0 ? .55 : .35,
+        depthWrite: false
+      }));
+      m.position.copy(G.pos[i]);
+      m.userData.spin = 0;
+      m.userData.first = G.kind[i] === 0 ? -Infinity : firstSeenIdx[i];
+      scene.add(m);
+      frames.push(m);
+    });
+  } else G.list.forEach((n, i) => {
     const r = G.rad[i], k = G.kind[i];
     let m;
     if (k === 0) m = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(r * 1.3, 1)), new THREE.LineBasicMaterial({
@@ -398,7 +493,8 @@ function buildFrames() {
     if (!e.usd) continue;
     const fn = node(S, e.from), tn = node(S, e.to);
     if (!fn || !tn || fn === tn || !G.index.has(fn.addr) || !G.index.has(tn.addr)) continue;
-    const k = fn.addr + ">" + tn.addr;
+    if (G.index.get(fn.addr) === G.index.get(tn.addr)) continue;
+    const k = G.index.get(fn.addr) + ">" + G.index.get(tn.addr);
     const p = pairs.get(k) || (pairs.set(k, {
       a: G.index.get(fn.addr),
       b: G.index.get(tn.addr),
@@ -409,21 +505,22 @@ function buildFrames() {
     p.usd += e.usd;
   }
   for (const p of pairs.values()) {
-    const a = G.pos[p.a], b = G.pos[p.b], lift = new THREE.Vector3(0, 15, 0);
-    const curve = new THREE.CubicBezierCurve3(a, a.clone().lerp(b, .3).add(lift), a.clone().lerp(b, .7).add(lift.multiplyScalar(.6)), b);
+    const a = G.pos[p.a], b = G.pos[p.b], d = b.clone().sub(a);
+    const lift = FLAT ? new THREE.Vector3(-d.y, d.x, 0).multiplyScalar(.1) : new THREE.Vector3(0, 15, 0);
+    const curve = new THREE.CubicBezierCurve3(a, a.clone().lerp(b, .3).add(lift), a.clone().lerp(b, .7).add(lift.clone().multiplyScalar(.6)), b);
     const w = Math.min(1, Math.max(0, Math.log10(p.usd / 1e5) / 4));
     const line = new THREE.Line((new THREE.BufferGeometry).setFromPoints(curve.getPoints(48)), new THREE.LineBasicMaterial({
       color: p.victim ? 15970874 : 9082040,
       transparent: true,
-      opacity: .04 + .14 * w,
-      blending: THREE.AdditiveBlending,
+      opacity: FLAT ? .06 + .22 * w : .04 + .14 * w,
+      blending: FLAT ? THREE.NormalBlending : THREE.AdditiveBlending,
       depthWrite: false
     }));
     line.userData.first = p.first;
     scene.add(line);
     edges.push(line);
   }
-  if (!dust) {
+  if (!dust && !FLAT) {
     const n = 2600, a = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) {
       a[i * 3] = (rnd() - .5) * 520;
@@ -445,7 +542,7 @@ function buildFrames() {
 }
 
 function ring(i, color, size) {
-  if (!glOK || OG || reduced || !G.pos[i]) return;
+  if (FLAT || !glOK || OG || reduced || !G.pos[i]) return;
   const m = new THREE.Mesh(new THREE.RingGeometry(.92, 1, 96), new THREE.MeshBasicMaterial({
     color,
     transparent: true,
@@ -463,9 +560,13 @@ function ring(i, color, size) {
   rings.push(m);
 }
 
+const FLAT = Q.get("map") !== "3d";
+
+if (FLAT) $("hint").textContent = touch ? "Tap a name" : "Hover a name";
+
 const cam = {
-  yaw: -.24,
-  pitch: .16,
+  yaw: FLAT ? 0 : -.24,
+  pitch: FLAT ? 0 : .16,
   dist: 150,
   target: new THREE.Vector3,
   drag: null,
@@ -496,6 +597,8 @@ function fitCamera() {
     box.expandByPoint(p.clone().addScalar(G.rad[i]));
     box.expandByPoint(p.clone().addScalar(-G.rad[i]));
   });
+  if (G.heads) G.heads.forEach(hd => box.expandByPoint(hd.p.clone().add(new THREE.Vector3(0, 4, 0))));
+  if (FLAT && !G.vert) box.max.x += 75;
   const size = box.getSize(new THREE.Vector3), mid = box.getCenter(new THREE.Vector3);
   const top = OG ? h * .42 : narrow() ? slot + NOTE_ROOM : $("head").getBoundingClientRect().bottom - sb.top - 40;
   const bot = (narrow() || OG ? $("figs") : $("when")).getBoundingClientRect().top - sb.top + (narrow() && !OG ? -62 : 6);
@@ -572,11 +675,11 @@ function fitTanks(w, h, sb, slot) {
 }
 
 function placeCamera(now) {
-  const still = reduced || OG;
+  const still = reduced || OG || FLAT;
   const yaw = cam.yaw + (still ? 0 : Math.sin(now / 9e3) * .12), pitch = cam.pitch + (still ? 0 : Math.sin(now / 13e3) * .04);
   camera.position.set(cam.target.x + Math.sin(yaw) * Math.cos(pitch) * cam.dist, cam.target.y + Math.sin(pitch) * cam.dist, cam.target.z + Math.cos(yaw) * Math.cos(pitch) * cam.dist);
   camera.lookAt(cam.target);
-  if (cam.shake > 0) {
+  if (cam.shake > 0 && !FLAT) {
     camera.position.x += (Math.random() - .5) * cam.shake;
     camera.position.y += (Math.random() - .5) * cam.shake;
     cam.shake *= .9;
@@ -584,7 +687,7 @@ function placeCamera(now) {
   }
 }
 
-if (glOK && !touch) {
+if (glOK && !touch && !FLAT) {
   canvas.addEventListener("pointerdown", e => {
     cam.drag = {
       x: e.clientX,
@@ -646,13 +749,19 @@ const v3 = new THREE.Vector3;
 function placeLabels(now) {
   const w = canvas.clientWidth, h = canvas.clientHeight;
   const text = !placeLabels.at || now - placeLabels.at > 200;
-  const placed = [];
+  const placed = (G.heads || []).map(hd => {
+    v3.copy(hd.p).project(camera);
+    const x = (v3.x + 1) / 2 * w, y = (1 - v3.y) / 2 * h;
+    return hd.align === "c" ? [ x - 90, y - 14, x + 90, y + 2 ] : [ x - 4, y - 14, x + hd.text.length * 8 + 4, y + 2 ];
+  });
   for (const {el, i, n} of labs.values()) {
+    const side = FLAT && !G.vert;
     v3.copy(G.pos[i]);
-    v3.y -= G.rad[i] * 1.3 + 1.4;
+    if (side) v3.x += G.rad[i] + 2.5; else v3.y -= G.rad[i] * 1.3 + 1.4;
     v3.project(camera);
     const x = (v3.x + 1) / 2 * w, y = (1 - v3.y) / 2 * h;
-    const bw = Math.max(70, nameOf(n).length * 7) / 2, box = [ x - bw, y, x + bw, y + 30 ];
+    const bw = Math.max(70, nameOf(n).length * 7) / 2, box = side ? [ x, y - 15, x + bw * 2, y + 15 ] : [ x - bw, y, x + bw, y + 34 ];
+    el.classList.toggle("side", side);
     const clear = !placed.some(b => b[0] < box[2] && box[0] < b[2] && b[1] < box[3] && box[1] < b[3]);
     const vis = clear && v3.z < 1 && (live || n.seed || firstSeenIdx[i] <= ph);
     if (vis) placed.push(box);
@@ -660,14 +769,21 @@ function placeLabels(now) {
     el.style.left = x + "px";
     el.style.top = y + "px";
     if (text && T) {
-      const hd = T.heldBy.get(n.addr) || 0, fz = T.frozenBy.get(n.addr) || 0;
+      const hd = sumBy(T.heldBy, n), fz = sumBy(T.frozenBy, n), out = sumBy(outOf, n), inn = sumBy(inOf, n);
       let val = "";
-      if (n.role === "victim") val = outOf.get(n.addr) ? "−" + usd(outOf.get(n.addr)) : ""; else if (n.role === "venue" || n.role === "recovered") val = inOf.get(n.addr) ? usd(inOf.get(n.addr)) + (n.role === "recovered" ? " back" : " in") : ""; else if (hd > 1e4) val = usd(hd) + (fz > 1e5 ? ` · <span class="fz">${usd(fz)} frozen</span>` : "");
+      if (n.role === "victim") val = out ? "−" + usd(out) : ""; else if (n.role === "venue" || n.role === "recovered") val = inn ? usd(inn) + (n.role === "recovered" ? " back" : " in") : ""; else if (hd > 1e4) val = usd(hd) + (fz > 1e5 && !G.vert ? ` · <span class="fz">${usd(fz)} frozen</span>` : "");
       const html = `<b>${esc(nameOf(n))}</b>${val ? `<span>${val}</span>` : ""}`;
       if (el.innerHTML !== html) el.innerHTML = html;
     }
   }
   if (text) placeLabels.at = now;
+  if (text && G.heads) {
+    const html = G.heads.map(hd => {
+      v3.copy(hd.p).project(camera);
+      return `<span class="${hd.align}" style="left:${((v3.x + 1) / 2 * w).toFixed(0)}px;top:${((1 - v3.y) / 2 * h).toFixed(0)}px">${esc(hd.text)}</span>`;
+    }).join("");
+    if ($("laneNames").innerHTML !== html) $("laneNames").innerHTML = html;
+  }
 }
 
 const outOf = new Map, inOf = new Map, fired = new Set;
@@ -1273,9 +1389,10 @@ function showTip(n, ev) {
     tip.hidden = true;
     return;
   }
-  const hd = T ? T.heldBy.get(n.addr) || 0 : 0, fz = T ? T.frozenBy.get(n.addr) || 0 : 0;
+  const hd = T ? sumBy(T.heldBy, n) : 0, fz = T ? sumBy(T.frozenBy, n) : 0;
   const rows = [];
-  if (n.role === "victim") rows.push(`Sent to the attacker's side: ${usd(outOf.get(n.addr) || 0)}`); else if (n.role === "venue") rows.push(`${n.members.length} contract${n.members.length === 1 ? "" : "s"}: ${esc(n.members.slice(0, 4).map(m => m.name || short(m.addr)).join(", "))}${n.members.length > 4 ? "…" : ""}`, `Received from the attacker's side: ${usd(inOf.get(n.addr) || 0)}`); else rows.push(`Holds ${live ? "now" : "at this point"}: ${usd(hd)}${fz ? ` <span class="fz">(${usd(fz)} frozen)</span>` : ""}`);
+  if (n.grp) rows.push(`${n.grp.length} wallet${n.grp.length === 1 ? "" : "s"} gathered into one`);
+  if (n.role === "victim") rows.push(`Sent to the attacker's side: ${usd(sumBy(outOf, n))}`); else if (n.grp && (n.role === "venue" || n.role === "recovered")) rows.push(`Received from the attacker's side: ${usd(sumBy(inOf, n))}`); else if (n.role === "venue") rows.push(`${n.members.length} contract${n.members.length === 1 ? "" : "s"}: ${esc(n.members.slice(0, 4).map(m => m.name || short(m.addr)).join(", "))}${n.members.length > 4 ? "…" : ""}`, `Received from the attacker's side: ${usd(inOf.get(n.addr) || 0)}`); else rows.push(`Holds ${live ? "now" : "at this point"}: ${usd(hd)}${fz ? ` <span class="fz">(${usd(fz)} frozen)</span>` : ""}`);
   if (live && n.role !== "venue" && n.tokens.length) rows.push(n.tokens.slice(0, 4).map(t => `${esc(t.sym)} ${amt(t.amt)}`).join(" · ") + (n.eth > .01 ? ` · ETH ${amt(n.eth)}` : ""));
   if (n.note) rows.push(`<span class="m">${esc(n.note)}</span>`);
   if (n.link) rows.push(`<span class="m">${n.role === "venue" ? "e.g. " : ""}${esc(n.link)}</span>`);
@@ -1327,9 +1444,15 @@ function frame(now) {
   } else if (glOK && built && G) {
     renderPass.scene = scene;
     renderPass.camera = camera;
-    bloom.strength = narrow() ? .8 : .9;
-    bloom.radius = .18;
-    bloom.threshold = .28;
+    if (FLAT) {
+      bloom.strength = .2;
+      bloom.radius = .1;
+      bloom.threshold = .7;
+    } else {
+      bloom.strength = narrow() ? .8 : .9;
+      bloom.radius = .18;
+      bloom.threshold = .28;
+    }
     pulse *= .93;
     mat.uniforms.uT.value = ph - START;
     mat.uniforms.uClock.value = now / 1e3;

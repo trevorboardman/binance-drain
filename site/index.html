@@ -108,7 +108,13 @@ body.v-map .ticks, body.v-map .band-names, body:not(.v-map) .labels, body:not(.v
 .note .tx { font: 11.5px/1.5 var(--mono); color: var(--mute); margin-top: 6px; text-align: right; overflow-wrap: anywhere; }
 
 .labels { position: absolute; inset: 0; pointer-events: none; }
+.lane-names { position: absolute; inset: 0; pointer-events: none; }
+.lane-names span { position: absolute; font: 600 10px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--mute); white-space: nowrap; }
+.lane-names span.c { transform: translate(-50%, -100%); }
+.lane-names span.l { transform: translate(0, -100%); }
+body:not(.v-map) .lane-names { display: none; }
 .lab { position: absolute; transform: translate(-50%, 0); white-space: nowrap; text-align: center; pointer-events: auto; cursor: pointer; padding: 2px 4px; transition: opacity .6s; }
+.lab.side { transform: translate(0, -50%); text-align: left; }
 .lab b { display: block; font: 700 12px/1.2 var(--text); text-shadow: 0 1px 8px #000, 0 0 2px #000; }
 .lab span { display: block; font: 500 11px/1.3 var(--mono); color: var(--mute); text-shadow: 0 1px 8px #000; }
 .lab.victim b { color: var(--vault); }
@@ -274,6 +280,7 @@ body.og .head { top: 34px; }
 <div class="scene" id="scene">
   <canvas class="gl" id="gl"></canvas>
   <div class="labels" id="labels"></div>
+  <div class="lane-names" id="laneNames"></div>
   <div class="ticks" id="ticks"></div>
   <div class="band-names" id="bandNames"></div>
   <div class="band-key" id="bandKey" aria-label="Shades inside each column, bottom to top"></div>
@@ -403,6 +410,6 @@ body.og .head { top: 34px; }
   </footer>
 </main>
 
-<script type="module" src="app.js?v=21"></script>
+<script type="module" src="app.js?v=22"></script>
 </body>
 </html>
