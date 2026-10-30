@@ -5,5 +5,6 @@
 !/snapshot.mjs
 !/chains/
 !/market.mjs
+!/merge.mjs
 !/package.json
 !/README.md
