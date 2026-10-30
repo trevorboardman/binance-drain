@@ -108,7 +108,7 @@ async function signaturesSince(addr, sinceSec) {
 async function getTx(sig) {
   const opts = {
     encoding: "jsonParsed",
-    maxSupportedTransactionVersion: 0,
+    maxSupportedTransactionVersion: 1,
     commitment: "confirmed"
   };
   for (const url of [ PUBLICNODE, MAINNET ]) {
