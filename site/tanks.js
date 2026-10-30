@@ -17,6 +17,26 @@ const KEYS = [ "B", "M", "F", "V", "R", "X" ];
 
 const CAP = 16e3;
 
+export const BANDS = [ "eth", "btc", "tron", "xrpl", "sol", "more" ];
+
+export const BAND_NAME = {
+  eth: "Ethereum",
+  btc: "Bitcoin",
+  tron: "Tron",
+  xrpl: "XRP Ledger",
+  sol: "Solana",
+  more: "Arbitrum, Avalanche, Optimism, Base"
+};
+
+export const BAND_SHADE = [ 1, .84, .71, .6, .51, .43 ];
+
+const BI = Object.fromEntries(BANDS.map((b, i) => [ b, i ])), NB = BANDS.length;
+
+const bandOf = key => {
+  const i = typeof key === "string" ? key.indexOf(":") : -1, c = i > 0 ? key.slice(0, i) : "";
+  return BI[c] != null ? BI[c] : /^(arb|op|base|avax|bsc)$/.test(c) ? BI.more : BI.eth;
+};
+
 const VERT = `\nattribute vec3 aCol; attribute float aA; attribute float aSize;\nuniform float uDpr;\nvarying vec3 vCol; varying float vA;\nvoid main() {\n  vCol = aCol; vA = aA;\n  gl_PointSize = aSize * uDpr;\n  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);\n}`;
 
 const FRAG = `\nvarying vec3 vCol; varying float vA;\nvoid main() {\n  vec2 d = gl_PointCoord - 0.5;\n  float r = length(d);\n  if (r > 0.5) discard;\n  float g = smoothstep(0.5, 0.18, r);\n\n  gl_FragColor = vec4(pow(vCol, vec3(2.2)) * g, vA * g);\n}`;
@@ -73,11 +93,14 @@ export function makeTanks({reduced}) {
     o.frustumCulled = false;
     scene.add(o);
   });
-  let steps = [], cumT = new Float64Array(0), cum = {};
+  let steps = [], cumT = new Float64Array(0), cum = {}, cumBand = {};
   function setSteps(list) {
     steps = list;
     cumT = new Float64Array(steps.length);
-    for (const k of KEYS) cum[k] = new Float64Array(steps.length);
+    for (const k of KEYS) {
+      cum[k] = new Float64Array(steps.length);
+      cumBand[k] = new Float64Array(steps.length * NB);
+    }
     const run = {
       B: 0,
       M: 0,
@@ -85,13 +108,30 @@ export function makeTanks({reduced}) {
       V: 0,
       R: 0,
       X: 0
-    };
+    }, rb = {};
+    for (const k of KEYS) rb[k] = new Float64Array(NB);
     steps.forEach((s, i) => {
-      if (s.a === "B") run.B += s.v; else run[s.a] -= s.v;
+      const bi = bandOf(s.key);
+      if (s.a === "B") {
+        run.B += s.v;
+        rb.B[bi] += s.v;
+      } else {
+        run[s.a] -= s.v;
+        rb[s.a][bi] -= s.v;
+      }
       run[s.b] += s.v;
+      rb[s.b][bi] += s.v;
       cumT[i] = s.t;
-      for (const k of KEYS) cum[k][i] = run[k];
+      for (const k of KEYS) {
+        cum[k][i] = run[k];
+        cumBand[k].set(rb[k], i * NB);
+      }
     });
+  }
+  function bandsAt(t) {
+    const i = idxAt(t), out = {};
+    for (const k of KEYS) out[k] = i < 0 ? new Float64Array(NB) : cumBand[k].subarray(i * NB, i * NB + NB);
+    return out;
   }
   const idxAt = t => {
     let lo = 0, hi = cumT.length;
@@ -301,12 +341,29 @@ export function makeTanks({reduced}) {
       if (n >= CAP - 1) break;
     }
     const tw = k => k === "B" ? .45 : k === "F" ? .7 + .06 * Math.sin(clock * 1.3) : k === "X" ? .45 : .85;
+    const BA = bandsAt(t), bands = [];
     for (const k of [ "B", "M", "F", "V", "R", "X" ]) {
-      const a0 = tw(k);
-      for (let j = 0; j < shown[k] && n < CAP - 1; j++) {
-        const [x, y] = slotXY(k, j);
-        const a = k === "F" ? a0 + .05 * Math.sin(clock * 2.1 + j * 1.7) : a0;
-        put(x, y, C[k], a, dot);
+      const a0 = tw(k), per = Array.from(BA[k], v => Math.max(0, Math.round(v / DOT)));
+      let j = 0;
+      for (let b = 0; b < NB && j < shown[k]; b++) {
+        const last = per.slice(b + 1).every(c => !c);
+        const cnt = last ? shown[k] - j : Math.min(per[b], shown[k] - j);
+        if (cnt <= 0) continue;
+        tmp.copy(C[k]).multiplyScalar(BAND_SHADE[b]);
+        for (let q = 0; q < cnt && n < CAP - 1; q++, j++) {
+          const [x, y] = slotXY(k, j);
+          const a = k === "F" ? a0 + .05 * Math.sin(clock * 2.1 + j * 1.7) : a0;
+          put(x, y, tmp, a, dot);
+        }
+        bands.push({
+          k,
+          band: BANDS[b],
+          v: BA[k][b],
+          y0: G.base - Math.ceil(j / G.per) * G.pitch,
+          y1: G.base - Math.floor((j - cnt) / G.per) * G.pitch,
+          x: G.x[k],
+          w: G.colW
+        });
       }
     }
     geo.setDrawRange(0, n);
@@ -329,6 +386,7 @@ export function makeTanks({reduced}) {
     return {
       L,
       shown,
+      bands,
       flying: flights.length
     };
   }
@@ -337,6 +395,7 @@ export function makeTanks({reduced}) {
     cam,
     setSteps,
     levelsAt,
+    bandsAt,
     advance,
     clear,
     frame,

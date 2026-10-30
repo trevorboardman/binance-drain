@@ -6,9 +6,9 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Binance Drain Tracker</title>
-<meta name="description" content="$3.7 billion left Binance's hot wallets on 29 Oct 2026. Every dot is $1 million of it, stacked where it is now: frozen, still movable, given back. Live from the Ethereum blockchain.">
+<meta name="description" content="More than $6 billion left Binance's hot wallets on 29 Oct 2026, on nine blockchains. Every dot is $1 million of it, stacked where it is now: frozen, still movable, given back. Live from the chains themselves.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="$3.7 billion left Binance in one night. Here is where it is now.">
+<meta property="og:title" content="More than $6 billion left Binance in one night. Here is where it is now.">
 <meta property="og:description" content="A live, to-scale picture of the Binance hot wallet drain: every dollar that left, what Tether, Circle and Ripple froze, and what the attacker can still move. Replay the night from the first transaction.">
 <meta property="og:url" content="https://binance.trevorboardman.com/">
 <meta property="og:image" content="https://binance.trevorboardman.com/og.png">
@@ -81,8 +81,14 @@ h1 .amt { color: var(--vault); font-stretch: 100%; font-variant-numeric: tabular
 .fig .d { font-size: 12px; color: var(--mute); max-width: 24ch; margin: 6px auto 0; line-height: 1.4; }
 .fig .s { display: none; }
 .ticks { position: absolute; inset: 0; pointer-events: none; }
+.band-names { position: absolute; inset: 0; pointer-events: none; }
+.band-names span { position: absolute; pointer-events: auto; }
+.band-key { position: absolute; right: 22px; top: 0; visibility: hidden; background: var(--bg); padding: 2px 0 4px 8px; display: flex; flex-direction: column-reverse; gap: 5px; font: 500 10.5px/1.2 var(--mono); color: var(--mute); pointer-events: none; }
+.band-key span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.band-key i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+body.v-map .band-key { display: none; }
 .ticks span { position: absolute; transform: translateY(-50%); font: 500 10.5px/1 var(--mono); color: var(--mute); }
-body.v-map .ticks, body:not(.v-map) .labels, body:not(.v-map) .hint, body:not(.v-map) .when { display: none; }
+body.v-map .ticks, body.v-map .band-names, body:not(.v-map) .labels, body:not(.v-map) .hint, body:not(.v-map) .when { display: none; }
 .tip .sw { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; }
 .when { position: absolute; left: 0; bottom: 226px; font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--mute); pointer-events: none; }
 .when b { color: var(--ink); font-weight: 600; }
@@ -269,6 +275,8 @@ body.og .head { top: 34px; }
   <canvas class="gl" id="gl"></canvas>
   <div class="labels" id="labels"></div>
   <div class="ticks" id="ticks"></div>
+  <div class="band-names" id="bandNames"></div>
+  <div class="band-key" id="bandKey" aria-label="Shades inside each column, bottom to top"></div>
   <div class="layer pad">
     <div class="top pad">
       <div class="mark">Binance drain <span>tracker</span></div>
@@ -279,17 +287,17 @@ body.og .head { top: 34px; }
       </div>
     </div>
     <div class="head pad" id="head">
-      <p class="kicker">Ethereum · <span class="long">Thursday </span>29 Oct<span class="long">ober</span> 2026</p>
+      <p class="kicker">Nine blockchains · <span class="long">Thursday </span>29 Oct<span class="long">ober</span> 2026</p>
       <h1><span class="amt" id="hOut">$3.3 billion</span> left Binance in one night</h1>
       <p class="dek plain-only">Every dot <span class="dot-key"></span> is <b id="unitTxt">$1 million</b> of it.<a class="howlink" href="#how">How they got in ↓</a></p>
-      <p class="dek tech-only">1 dot = <span id="unitTxt2">$1M</span> at today's prices. EIP-7702 delegation on Binance 14, one-call sweep, onward flows of $1M+ followed four hops.</p>
+      <p class="dek tech-only">1 dot = <span id="unitTxt2">$1M</span> at today's prices. Bitcoin, Ethereum, Tron, XRP Ledger and Solana. EIP-7702 delegation on Binance 14, one-call sweep; the other chains paid out by Binance's own wallets; onward flows of $1M+ followed four hops.</p>
     </div>
-    <div class="clock pad" id="clockBox"><div class="t" id="clock">20:18:00</div><div class="s" id="clockS">replay · UTC</div></div>
+    <div class="clock pad" id="clockBox"><div class="t" id="clock">20:00:00</div><div class="s" id="clockS">replay · UTC</div></div>
     <div class="note pad" id="note" hidden></div>
     <div class="when pad" id="when">Figures <b id="whenTxt">now</b></div>
     <div class="figs" id="figs">
       <div class="fig" data-k="B"><div class="k"><i style="background:var(--vault)"></i>Taken</div><div class="v" style="color:var(--vault)" id="fB">–</div><div class="d">Out of Binance, at today's prices.</div></div>
-      <div class="fig" data-k="M"><div class="k"><i style="background:var(--red)"></i><span class="l">Still movable</span><span class="s">Movable</span></div><div class="v" style="color:var(--red)" id="fM">–</div><div class="d" id="dM">Mostly Ether, which nobody can freeze.</div></div>
+      <div class="fig" data-k="M"><div class="k"><i style="background:var(--red)"></i><span class="l">Still movable</span><span class="s">Movable</span></div><div class="v" style="color:var(--red)" id="fM">–</div><div class="d" id="dM">Mostly coins nobody can freeze: Ether, Bitcoin, XRP, TRX, SOL.</div></div>
       <div class="fig" data-k="F"><div class="k"><i style="background:var(--ice)"></i>Frozen</div><div class="v" style="color:var(--ice)" id="fF">–</div><div class="d">Locked by Tether, Circle and Ripple.</div></div>
       <div class="fig" data-k="V"><div class="k"><i style="background:#d5dbe4"></i><span class="l">Swaps and loans</span><span class="s">Swaps, loans</span></div><div class="v" style="color:#d5dbe4" id="fV">–</div><div class="d" id="dV">Exchanges and lenders, net of what came back.</div></div>
       <div class="fig" data-k="R"><div class="k"><i style="background:var(--usd)"></i>Given back</div><div class="v" style="color:var(--usd)" id="fR">–</div><div class="d">Pulled back by Synthetix and The Sandbox.</div></div>
@@ -326,12 +334,13 @@ body.og .head { top: 34px; }
       </div>
       <ol class="chain">
         <li><time>15:59</time><b>The program</b><span>The attacker <a href="https://etherscan.io/tx/0x97408e7562eb2b28efcd24ba01609607b5749bc89448d007fa8b50ecf290329c" target="_blank" rel="noopener">puts a program on the chain</a> that empties a wallet in one call and takes orders only from them.</span></li>
+        <li><time>20:05</time><b>The other chains</b><span>Before wallet 14 changes hands, Binance wallets on the XRP Ledger (20:05), Solana (20:10), Bitcoin (20:20) and Tron (20:21) pay the attacker. Each payment is signed by the Binance wallet itself; those chains have no program to plant.</span></li>
         <li><time>20:20:59</time><b>The handover</b><span>Wallet 14 accepts the 35th signature and starts running that program.</span></li>
         <li><time>20:24:23</time><b>The sweep</b><span><a href="https://etherscan.io/tx/0x53bd38b816c23e74134786c29a8c18d792777998a3b9326047b583100e88e2f3" target="_blank" rel="noopener">One call</a>: 167,464 Ether and 63 other tokens leave. The fee was under $1.</span></li>
         <li><time>00:10:35</time><b>Closed</b><span>Binance <a href="https://etherscan.io/tx/0xafbf94c92a8d749988411669fa14d4f8866d9b4420b4ebd299f28e958dac7209" target="_blank" rel="noopener">signs the wallet back</a> to plain. It was open for 3 h 49 min.</span></li>
       </ol>
       <div class="unknown"><h3>What the chain can't tell us</h3>
-        <p>How the attacker got signatures from wallet 14's key. Binance kept using that key all night, so it was not taken away: either someone else has a copy, or Binance's signing system could be made to sign. Nothing on the chain shows who or what did the signing, and that includes the claims of an AI attack. As of 30 Oct 03:30 UTC Binance has not said.</p></div>
+        <p>How the attacker got signatures from Binance's keys, on five blockchains within 20 minutes. Binance kept using those wallets all night, so the keys were not taken away: either someone else has copies, or Binance's signing system could be made to sign. Nothing on the chain shows who or what did the signing, and that includes the claims of an AI attack. As of 30 Oct 03:30 UTC Binance has not said.</p></div>
     </div>
     <div class="steps">
       <div class="step"><time>13:51 UTC</time><h3>A rehearsal</h3>
@@ -341,13 +350,13 @@ body.og .head { top: 34px; }
         <p>Two more Binance wallets are emptied. The haul spreads over dozens of new wallets, gets swapped, and gets borrowed against.</p>
         <p class="tx tech-only">B16 → E2 (<a href="https://etherscan.io/tx/0x51f263fa50966df6bbd7f8c6e6e99e3791c94444f7c4343b2fef1ee2d62fd39f" target="_blank" rel="noopener">0x51f2…</a>); E2 → E8 (<a href="https://etherscan.io/tx/0x551d7961652e6d9835b11988908adf86ebe480badb4ce2d7d52193b2b1b02c76" target="_blank" rel="noopener">0x551d…</a>); Hot Wallet 34, a Circle MSCA owned by B14, → E2, 780M + 43M USDC (<a href="https://etherscan.io/tx/0xdc102dd89dded5a83f1008906883ffb7c81ff3b7d7965d8c7277d170b5e17481" target="_blank" rel="noopener">0xdc10…</a>). Several hop wallets are themselves 7702-delegated.</p></div>
       <div class="step"><time>From 21:01</time><h3>The freezes</h3>
-        <p>Tether, Circle and Ripple lock their dollar tokens within the hour. Ether has no issuer, so it stays movable.</p>
+        <p>Tether, Circle and Ripple lock their dollar tokens within the hour, on Ethereum and on Tron. Ether, Bitcoin, XRP, TRX and SOL have no issuer, so they stay movable.</p>
         <p class="tx tech-only">Tether <code>AddedBlackList</code>, Circle <code>Blacklisted</code> and Ripple <code>AccountPaused</code> events are read from the token contracts; each wallet's state is checked with <code>isBlackListed</code> / <code>isBlacklisted</code> / <code>accountPaused</code>. Binance revoked the delegation at 00:10:35 on 30 Oct (<a href="https://etherscan.io/tx/0xafbf94c92a8d749988411669fa14d4f8866d9b4420b4ebd299f28e958dac7209" target="_blank" rel="noopener">0xafbf…</a>).</p></div>
     </div>
     <dl class="words plain-only">
       <div><dt>Hot wallet</dt><dd>An exchange's online wallet for paying out withdrawals.</dd></div>
       <div><dt>Dollar tokens</dt><dd>USDT, USDC, RLUSD: worth $1, and freezable by the company behind each.</dd></div>
-      <div><dt>Ether</dt><dd>Ethereum's own coin. Nobody can freeze it.</dd></div>
+      <div><dt>Coins</dt><dd>Ether, Bitcoin, XRP, TRX, SOL: each blockchain's own money. Nobody can freeze them.</dd></div>
     </dl>
   </section>
 
@@ -370,13 +379,14 @@ body.og .head { top: 34px; }
         <div><h3>Every movement of $10K or more <span class="filters" id="lf"><button data-f="all" aria-pressed="true">All</button><button data-f="out" aria-pressed="false">Attacker sends</button><button data-f="big" aria-pressed="false">$1M+</button></span></h3>
           <div class="scroll"><table><thead><tr><th>UTC</th><th>From</th><th>To</th><th class="r">Amount</th><th class="r">USD now</th><th>Tx</th></tr></thead><tbody id="lRows"></tbody></table></div></div>
         <div class="method"><h3>Method</h3>
-          <p>The starting points are the five attack transactions above, decoded with <code>eth_getTransactionByHash</code>. From there every transfer of ETH or a priced ERC-20 worth $10K or more is recorded. A plain wallet (no code) or Safe multisig that receives $1M or more from the attacker's side is followed in turn, up to four hops.</p>
+          <p>On Ethereum the starting points are the five attack transactions above, decoded with <code>eth_getTransactionByHash</code>. From there every transfer of ETH or a priced ERC-20 worth $10K or more is recorded. A plain wallet (no code) or Safe multisig that receives $1M or more from the attacker's side is followed in turn, up to four hops.</p>
           <p>Contracts are not followed. Named ones are grouped by what they do. Unnamed ones are grouped together: they may be trading routers or the attacker's own contracts, and this page can't tell which. Neither group's balances count as the attacker's. A wallet with an EIP-7702 delegation has code but is still a wallet, and is followed. A few roles were set by hand after checking on-chain: two Safes that took back Synthetix and Sandbox tokens, and two hop wallets the first pass took for outside senders.</p>
           <p>Totals: every dollar that leaves Binance for the attacker's side lands in "still movable" and from then on is in exactly one place, so the five columns always add up to what was taken. Money sent to an exchange or lender goes to "in swaps and loans" and comes back out when the service pays (a swap's Ether, an Aave loan), so that column is net. A freeze moves the frozen wallet's balance of that token to "frozen". Money sent on in amounts under $1M goes to wallets this page does not follow: "not traced". Each dot is $1M. Ether is valued at today's price, dollar tokens at $1, other tokens at the price when the transfer was recorded.</p>
           <p>Wallet map: each dot stands for $25,000 ($60,000 on phones) and takes the exact path its money took, transfer by transfer. Dollar tokens turn blue once their issuer has blocked the wallet they sit in.</p>
           <p>Ether moved by a contract inside a transaction (an internal transaction, such as the 167,464 ETH in the main sweep, or a router paying out a swap) is read from Blockscout's internal-transactions list, which its transactions list leaves out.</p>
-          <p>Not covered: the 612.7M USDT on Tron and 16,687 BTC that Whale Alert reported, which no source has tied to the attacker; the Arbitrum and Avalanche flows in Blockaid's total; USD1 and PAXG freezes reported by World Liberty and Paxos. Ripple reported freezing about $200M of RLUSD; 40.5M is frozen on Ethereum, and that is what this page counts.</p>
-          <p>Data comes from the <a href="https://eth.blockscout.com" target="_blank" rel="noopener">Blockscout</a> API and the <a href="https://ethereum-rpc.publicnode.com" target="_blank" rel="noopener">PublicNode</a> Ethereum RPC by a job that runs about every 10 minutes and publishes the result with this page; your browser reads only this site. <span id="health"></span></p>
+          <p>The other chains: Bitcoin, Tron, XRP Ledger, Solana, Arbitrum, Optimism, Base and Avalanche are read the same way and add into the same totals: the Binance wallets that paid the attacker that night, every movement of $10K or more from there, and plain wallets that got $1M or more followed up to four hops. Each chain's own coin is valued at today's price. Tether's freezes on Tron and Avalanche count as frozen. On Arbitrum the attacker's funds were moved to a locked address at 00:18 on 30 Oct by a transaction sent from Ethereum; that counts as frozen too. BNB Chain was checked and showed nothing. The Binance wallets on the XRP Ledger carry Binance's verified name; on Bitcoin an outside label and its history; on the other chains their history only, because their explorers block automated reads.</p>
+          <p>Not covered: USD1 and PAXG freezes reported by World Liberty and Paxos. Ripple reported freezing about $200M of RLUSD; 40.5M is frozen on Ethereum, and that is what this page counts.</p>
+          <p>Data comes from the <a href="https://eth.blockscout.com" target="_blank" rel="noopener">Blockscout</a> API and the <a href="https://ethereum-rpc.publicnode.com" target="_blank" rel="noopener">PublicNode</a> Ethereum RPC; for the other chains from mempool.space, TronGrid, the XRP Ledger's public servers, Solana's public RPC, each layer-2's public RPC and Routescan, with prices from Coinbase, Kraken and CoinGecko. A job that runs about every 10 minutes and publishes the result with this page; your browser reads only this site. <span id="health"></span></p>
         </div>
       </div>
     </details>
@@ -393,6 +403,6 @@ body.og .head { top: 34px; }
   </footer>
 </main>
 
-<script type="module" src="app.js?v=19"></script>
+<script type="module" src="app.js?v=21"></script>
 </body>
 </html>

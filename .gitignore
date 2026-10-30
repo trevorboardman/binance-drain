@@ -3,5 +3,6 @@
 !/.github/
 !/site/
 !/snapshot.mjs
+!/chains/
 !/package.json
 !/README.md

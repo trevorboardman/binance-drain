@@ -10,9 +10,9 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 
-import { makeState, addNode, loadData, node, isSide, isAddr, isHash, totalsAt, tankSteps, tankLevels, assetClass, STABLE, short, sleep, ATTACKER, B14, DELEGATE, SEEDS } from "./core.js?v=11";
+import { makeState, addNode, loadData, node, isSide, isAddr, isHash, addrUrl, txUrl, chainOf, CHAINS, totalsAt, tankSteps, tankLevels, assetClass, STABLE, short, sleep, ATTACKER, B14, DELEGATE, SEEDS } from "./core.js?v=12";
 
-import { makeTanks, DOT, COLS } from "./tanks.js?v=8";
+import { makeTanks, DOT, COLS, BANDS, BAND_NAME, BAND_SHADE } from "./tanks.js?v=10";
 
 const Q = new URLSearchParams(location.search);
 
@@ -52,7 +52,7 @@ const hms = t => new Date(t).toISOString().slice(11, 19);
 
 const big = v => v >= 1e9 ? "$" + (v / 1e9).toFixed(1) + " billion" : v >= 1e6 ? "$" + Math.round(v / 1e6) + " million" : usd(v, true);
 
-const valueOf = e => e.sym === "ETH" || e.sym === "WETH" ? e.amt * S.ethPrice : STABLE.has((e.sym || "").toUpperCase()) ? e.amt : e.usd;
+const valueOf = e => e.sym === "ETH" || e.sym === "WETH" ? e.amt * S.ethPrice : S.prices[e.sym] ? e.amt * S.prices[e.sym] : STABLE.has((e.sym || "").toUpperCase()) ? e.amt : e.usd;
 
 const ago = t => {
   const s = Math.max(0, (Date.now() - t) / 1e3);
@@ -81,7 +81,7 @@ let tech = false;
 
 const narrow = () => innerWidth < 760;
 
-const plainOf = n => n.role === "hop" ? "Attacker wallet" : n.plain;
+const plainOf = n => n.role === "hop" ? "Attacker wallet" + (chainOf(n.addr) === "eth" ? "" : " (" + CHAINS[chainOf(n.addr)].name + ")") : n.plain;
 
 const nameOf = n => !n ? "" : tech ? n.label : narrow() && n.mini || plainOf(n);
 
@@ -92,7 +92,7 @@ const nameAt = a => {
 
 const BOTS = "venue:unverified contracts";
 
-const START = Date.parse("2026-10-29T20:18:00Z");
+const START = Date.parse("2026-10-29T20:00:00Z");
 
 const shownT = e => e.liveAt || e.t;
 
@@ -507,6 +507,46 @@ function fitCamera() {
   cam.target.copy(mid);
 }
 
+let bandSig = "";
+
+function bandLabels(list) {
+  const keep = (list || []).filter(b => b.y1 - b.y0 >= 2);
+  const sig = keep.map(b => b.k + b.band + Math.round(b.y0) + Math.round(b.y1) + Math.round(b.v / 1e6)).join("|");
+  if (sig === bandSig) return;
+  bandSig = sig;
+  $("bandNames").innerHTML = keep.map((b, i) => `<span data-i="${i}" style="left:${b.x.toFixed(1)}px;top:${b.y0.toFixed(1)}px;width:${b.w.toFixed(1)}px;height:${(b.y1 - b.y0).toFixed(1)}px"></span>`).join("");
+  bandLabels.list = keep;
+  const top = Math.min(...keep.map(b => b.y0), ...keep.map(b => b.y1));
+  if (isFinite(top)) {
+    $("bandKey").style.top = Math.max(0, top).toFixed(0) + "px";
+    $("bandKey").style.visibility = "visible";
+  }
+}
+
+function bandTip(ev) {
+  const el = ev.target.closest("#bandNames span"), b = el && bandLabels.list[+el.dataset.i];
+  if (!b) {
+    $("tip").hidden = true;
+    return;
+  }
+  const tip = $("tip");
+  tip.innerHTML = `<b>${esc(BAND_NAME[b.band])}</b>${usd(Math.max(0, b.v))}`;
+  tip.hidden = false;
+  const r = $("scene").getBoundingClientRect();
+  tip.style.left = Math.max(8, Math.min(r.width - tip.offsetWidth - 8, ev.clientX - r.left + 14)) + "px";
+  tip.style.top = Math.max(8, Math.min(r.height - tip.offsetHeight - 8, ev.clientY - r.top + 14)) + "px";
+}
+
+$("bandNames").addEventListener("pointerover", bandTip);
+
+$("bandNames").addEventListener("pointermove", bandTip);
+
+$("bandNames").addEventListener("pointerleave", () => {
+  $("tip").hidden = true;
+});
+
+$("bandKey").innerHTML = BANDS.map((b, i) => `<span><i style="background:rgb(${[ 243, 178, 58 ].map(c => Math.round(c * BAND_SHADE[i])).join(",")})"></i>${b === "more" ? "Other chains" : BAND_NAME[b]}</span>`).join("");
+
 function fitTanks(w, h, sb, slot) {
   const centers = {};
   let cellW = 0;
@@ -590,7 +630,7 @@ function buildLabels() {
         showTip(n, ev);
         return;
       }
-      if (n.link) window.open("https://etherscan.io/address/" + n.link, "_blank", "noopener");
+      if (addrUrl(n.link)) window.open(addrUrl(n.link), "_blank", "noopener");
     });
     $("labels").appendChild(el);
     labs.set(n.addr, {
@@ -682,6 +722,14 @@ function firstSeenFor() {
 }
 
 const MILESTONES = [ {
+  t: "20:05:00",
+  kind: "attack",
+  sum: "*",
+  to: "xrpl:rK21t6nGLy4MNDqhvy3pGwcLFy25qgfzMx",
+  title: "{v} in XRP goes first",
+  plain: "Five Binance XRP wallets are emptied into one new wallet in four minutes, before anything moves on Ethereum.",
+  tx: "Binance 6, 9, 10, 15 and 18 → rK21t6…qfzMx · first tx 78E3…FA6A"
+}, {
   t: "20:20:59",
   kind: "attack",
   title: "Binance wallet 14 changes hands",
@@ -786,6 +834,14 @@ const MILESTONES = [ {
   plain: "The last 2,961 Ether leaves wallet 14.",
   tx: "B14 → 0xa97b…8d10 · tx 0x4395…f89b"
 }, {
+  at: "2026-10-30T00:18:20Z",
+  kind: "freeze",
+  sum: "*",
+  to: "arb:0x0000000000000000000000000000000000000da0",
+  title: "{v} on Arbitrum is locked away",
+  plain: "Moved out of the attacker's wallet by a transaction sent from Ethereum, the way Arbitrum's Security Council froze stolen funds in April.",
+  tx: "arb 0x3e2b…32d5 → 0x…0da0, 8,426 ETH + 74.6M ARB · tx 0x410a…5f70, 0x75e8…edb6"
+}, {
   at: "2026-10-30T00:10:35Z",
   kind: "attack",
   title: "Binance takes wallet 14 back",
@@ -840,7 +896,7 @@ function buildMilestones() {
   }
   const sumOf = m => {
     let v = 0;
-    for (const e of S.events.values()) if (e.hash.startsWith(m.sum) && e.to.startsWith(m.to)) v += valueOf(e);
+    for (const e of S.events.values()) if ((m.sum === "*" || e.hash.startsWith(m.sum)) && e.to.startsWith(m.to)) v += valueOf(e);
     return v;
   };
   MS = MILESTONES.map(m => ({
@@ -906,7 +962,7 @@ function renderFigures() {
   $("fR").textContent = fig(F.R);
   $("fX").textContent = fig(F.X);
   const m = F.by.M, mt = m.eth + m.usd + m.tok;
-  $("dM").textContent = mt > 1e7 && m.eth / mt > .5 ? `${Math.round(m.eth / mt * 100)}% of it Ether, which nobody can freeze.` : "Ether and tokens nobody has frozen.";
+  $("dM").textContent = mt > 1e7 && m.eth / mt > .5 ? `${Math.round(m.eth / mt * 100)}% of it in coins nobody can freeze: Ether, Bitcoin, XRP, TRX, SOL.` : "Coins and tokens nobody has frozen.";
   $("dV").textContent = F.vIn > 1e6 ? `${usd(F.vIn)} went in, ${usd(F.vOut)} came back out.` : "Exchanges and lenders, net of what came back.";
   $("when").classList.toggle("rep", !live);
   $("whenTxt").textContent = live ? "now, live" : "at " + hms(ph) + " UTC in the replay";
@@ -1001,10 +1057,14 @@ function drawScrub() {
   sx.textAlign = "left";
   sx.textAlign = "center";
   const t1 = endTime(), hour = 36e5;
+  let lastTick = -1e9;
   const tickStep = TSC.brk ? hour : t1 - START > 6 * hour ? hour : 18e5;
   for (let t = Math.ceil(START / tickStep) * tickStep; t < Math.min(t1, TSC.brk ? START + NIGHT : t1); t += tickStep) {
     const x = TSC.X(t);
-    if (x > 40 && x < w - 40) sx.fillText(hms(t).slice(0, 5), x, h - 1);
+    if (x > 40 && x < w - 40 && x - lastTick >= 46) {
+      sx.fillText(hms(t).slice(0, 5), x, h - 1);
+      lastTick = x;
+    }
   }
   if (TSC.brk) {
     const bx = TSC.brk;
@@ -1259,7 +1319,8 @@ function frame(now) {
     bloom.strength = narrow() ? .18 : .22;
     bloom.radius = .25;
     bloom.threshold = .6;
-    TK.frame(now, live ? Infinity : ph);
+    const fr = TK.frame(now, live ? Infinity : ph);
+    if (fr) bandLabels(fr.bands);
     renderPass.scene = TK.scene;
     renderPass.camera = TK.cam;
     composer.render();
@@ -1336,12 +1397,12 @@ function renderTables() {
   const L = totalsAt(S, null, START);
   const ws = [ ...S.nodes.values() ].sort((a, b) => lane(a) - lane(b) || (L.heldBy.get(b.addr) || 0) - (L.heldBy.get(a.addr) || 0));
   $("wCount").textContent = ws.length + " entries";
-  $("wRows").innerHTML = ws.map(n => `<tr><td><span class="sw" style="background:${COLOR(n)}"></span>${ROLE(n)}</td>` + `<td>${isAddr(n.link) ? `<a href="https://etherscan.io/address/${n.link}" target="_blank" rel="noopener">${n.role === "venue" && n.addr.startsWith("venue:") ? esc(n.label) + " (" + n.members.length + ")" : n.link}</a>` : ""}</td>` + `<td class="r">${n.role === "venue" ? "" : amt(n.eth)}</td><td class="r">${n.role === "venue" ? "" : usd(L.heldBy.get(n.addr) || 0)}</td>` + `<td>${n.role === "venue" ? "" : esc(n.tokens.slice(0, 3).map(t => t.sym + " " + amt(t.amt)).join(", "))}</td>` + `<td>${n.role === "venue" ? "" : [ [ "USDT", n.usdtBl ], [ "USDC", n.usdcBl ], [ "RLUSD", n.rlusdBl ] ].filter(x => x[1]).map(x => `<span class="fz">${x[0]}</span>`).join(" ") || "–"}</td>` + `<td style="white-space:normal;min-width:220px;color:var(--mute)">${esc(n.note || n.label)}</td></tr>`).join("");
-  $("fRows").innerHTML = [ ...S.freezes.values() ].filter(z => isAddr(z.addr) && isHash(z.hash)).sort((a, b) => a.t - b.t).map(z => {
+  $("wRows").innerHTML = ws.map(n => `<tr><td><span class="sw" style="background:${COLOR(n)}"></span>${ROLE(n)}</td>` + `<td>${addrUrl(n.link) ? `<a href="${addrUrl(n.link)}" target="_blank" rel="noopener">${n.role === "venue" && n.addr.startsWith("venue:") ? esc(n.label) + " (" + n.members.length + ")" : esc((chainOf(n.link) === "eth" ? "" : CHAINS[chainOf(n.link)].name + " ") + n.link.slice(n.link.indexOf(":") + 1))}</a>` : ""}</td>` + `<td class="r">${n.role === "venue" ? "" : amt(n.eth)}</td><td class="r">${n.role === "venue" ? "" : usd(L.heldBy.get(n.addr) || 0)}</td>` + `<td>${n.role === "venue" ? "" : esc(n.tokens.slice(0, 3).map(t => t.sym + " " + amt(t.amt)).join(", "))}</td>` + `<td>${n.role === "venue" ? "" : [ [ "USDT", n.usdtBl ], [ "USDC", n.usdcBl ], [ "RLUSD", n.rlusdBl ] ].filter(x => x[1]).map(x => `<span class="fz">${x[0]}</span>`).join(" ") || "–"}</td>` + `<td style="white-space:normal;min-width:220px;color:var(--mute)">${esc(n.note || n.label)}</td></tr>`).join("");
+  $("fRows").innerHTML = [ ...S.freezes.values() ].filter(z => isAddr(z.addr) && isHash(z.hash, chainOf(z.addr))).sort((a, b) => a.t - b.t).map(z => {
     const n = node(S, z.addr);
-    return `<tr><td>${hms(z.t)}</td><td class="fz">${z.issuer}</td><td><a href="https://etherscan.io/address/${z.addr}" target="_blank" rel="noopener">${z.addr}</a></td><td>${n ? esc(n.label) : '<span style="color:var(--mute)">not on the map</span>'}</td><td><a href="https://etherscan.io/tx/${z.hash}" target="_blank" rel="noopener">${z.hash.slice(0, 12)}</a></td></tr>`;
+    return `<tr><td>${hms(z.t)}</td><td class="fz">${z.issuer}</td><td><a href="${addrUrl(z.addr)}" target="_blank" rel="noopener">${esc(z.addr)}</a></td><td>${n ? esc(n.label) : '<span style="color:var(--mute)">not on the map</span>'}</td><td><a href="${txUrl(z.hash, chainOf(z.addr))}" target="_blank" rel="noopener">${esc(z.hash.slice(0, 12))}</a></td></tr>`;
   }).join("");
-  let list = [ ...S.events.values() ].filter(e => isAddr(e.from) && isAddr(e.to) && isHash(e.hash));
+  let list = [ ...S.events.values() ].filter(e => isAddr(e.from) && isAddr(e.to) && isHash(e.hash, chainOf(e.from)));
   if (ledgerFilter === "out") list = list.filter(e => isSide(node(S, e.from)));
   if (ledgerFilter === "big") list = list.filter(e => e.usd >= 1e6);
   list = list.sort((a, b) => b.t - a.t).slice(0, 500);
@@ -1349,7 +1410,7 @@ function renderTables() {
     const fresh = e.liveAt && !shown.has(e.key);
     shown.add(e.key);
     const f = node(S, e.from), t = node(S, e.to);
-    return `<tr class="${fresh ? "new" : ""}"><td>${hms(e.t)}</td><td style="color:${COLOR(f)}" title="${e.from}">${esc(f ? f.label : short(e.from))}</td><td style="color:${COLOR(t)}" title="${e.to}">${esc(t ? t.label : short(e.to))}</td>` + `<td class="r">${e.sym === "call" ? "sweep call" : amt(e.amt) + " " + esc(e.sym)}</td><td class="r">${e.usd ? usd(e.usd) : ""}</td>` + `<td><a href="https://etherscan.io/tx/${e.hash}" target="_blank" rel="noopener">${e.hash.slice(0, 12)}</a></td></tr>`;
+    return `<tr class="${fresh ? "new" : ""}"><td>${hms(e.t)}</td><td style="color:${COLOR(f)}" title="${e.from}">${esc(f ? f.label : short(e.from))}</td><td style="color:${COLOR(t)}" title="${e.to}">${esc(t ? t.label : short(e.to))}</td>` + `<td class="r">${e.sym === "call" ? "sweep call" : amt(e.amt) + " " + esc(e.sym)}</td><td class="r">${e.usd ? usd(e.usd) : ""}</td>` + `<td><a href="${txUrl(e.hash, chainOf(e.from))}" target="_blank" rel="noopener">${esc(e.hash.slice(0, 12))}</a></td></tr>`;
   }).join("");
   const gen = Date.parse(S.generatedAt || "");
   $("health").textContent = (gen ? `This data was built at ${hms(gen)} UTC from block ${S.block.toLocaleString("en-US")}` + (S.failures ? `; ${S.failures} calls failed while building it.` : ".") : "The data has not loaded.") + (fetchErr ? ` The last check for newer data failed: ${fetchErr.slice(0, 80)}.` : "");
@@ -1399,9 +1460,14 @@ function renderWatch() {
     $("wLast").textContent = ago(last.t) + " ago";
     $("wLastD").textContent = `${usd(last.usd)} ${last.sym}, ${nameAt(last.from)} to ${nameAt(last.to)}.`;
   }
-  const bl = [ ...S.nodes.values() ].filter(n => n.usdtBl || n.usdcBl).length;
+  const blSet = new Set([ ...S.nodes.values() ].filter(n => n.usdtBl || n.usdcBl).map(n => n.addr));
+  for (const z of S.freezes.values()) {
+    const n = node(S, z.addr);
+    if (n && n.role !== "venue" && chainOf(z.addr) !== "eth") blSet.add(n.addr);
+  }
+  const bl = blSet.size;
   $("wBl").textContent = bl;
-  $("wBlD").textContent = `Out of ${[ ...S.nodes.values() ].filter(n => n.addr.startsWith("0x") && n.role !== "venue").length} on the map.`;
+  $("wBlD").textContent = `Out of ${[ ...S.nodes.values() ].filter(n => n.link && n.role !== "venue").length} on the map.`;
 }
 
 const REFRESH = 6e4, OLD = 45 * 6e4;

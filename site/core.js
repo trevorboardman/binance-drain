@@ -10,7 +10,7 @@ export const MIN_EVT = 1e4;
 
 export const DISCOVER = 1e6;
 
-export const MAX_DEPTH = 4, MAX_NODES = 70;
+export const MAX_DEPTH = 4, MAX_NODES = 220;
 
 export const USDT = "0xdac17f958d2ee523a2206206994597c13d831ec7";
 
@@ -149,11 +149,72 @@ export const KNOWN = {
   }
 };
 
-export const isAddr = a => typeof a === "string" && /^0x[0-9a-f]{40}$/.test(a);
+const B58 = "[1-9A-HJ-NP-Za-km-z]";
 
-export const isHash = h => typeof h === "string" && /^0x[0-9a-fA-F]{64}$/.test(h);
+const evmChain = (name, site) => ({
+  name,
+  addr: /^0x[0-9a-f]{40}$/,
+  hash: /^0x[0-9a-fA-F]{64}$/,
+  a: site + "/address/",
+  tx: site + "/tx/"
+});
 
-export const short = a => a.startsWith("0x") ? a.slice(0, 6) + "…" + a.slice(-4) : a;
+export const CHAINS = {
+  eth: evmChain("Ethereum", "https://etherscan.io"),
+  btc: {
+    name: "Bitcoin",
+    addr: new RegExp("^(bc1[02-9ac-hj-np-z]{8,87}|[13]" + B58 + "{25,34})$"),
+    hash: /^[0-9a-f]{64}$/,
+    a: "https://mempool.space/address/",
+    tx: "https://mempool.space/tx/"
+  },
+  tron: {
+    name: "Tron",
+    addr: new RegExp("^T" + B58 + "{33}$"),
+    hash: /^[0-9a-f]{64}$/,
+    a: "https://tronscan.org/#/address/",
+    tx: "https://tronscan.org/#/transaction/"
+  },
+  xrpl: {
+    name: "XRP Ledger",
+    addr: new RegExp("^r" + B58 + "{24,34}$"),
+    hash: /^[0-9A-Fa-f]{64}$/,
+    a: "https://livenet.xrpl.org/accounts/",
+    tx: "https://livenet.xrpl.org/transactions/"
+  },
+  sol: {
+    name: "Solana",
+    addr: new RegExp("^" + B58 + "{32,44}$"),
+    hash: new RegExp("^" + B58 + "{64,90}$"),
+    a: "https://solscan.io/account/",
+    tx: "https://solscan.io/tx/"
+  },
+  arb: evmChain("Arbitrum", "https://arbiscan.io"),
+  op: evmChain("Optimism", "https://optimistic.etherscan.io"),
+  base: evmChain("Base", "https://basescan.org"),
+  avax: evmChain("Avalanche", "https://snowtrace.io"),
+  bsc: evmChain("BNB Chain", "https://bscscan.com")
+};
+
+export const chainOf = a => {
+  const i = typeof a === "string" ? a.indexOf(":") : -1;
+  return i > 0 && CHAINS[a.slice(0, i)] ? a.slice(0, i) : "eth";
+};
+
+const rawOf = a => chainOf(a) === "eth" ? a : a.slice(a.indexOf(":") + 1);
+
+export const isAddr = a => typeof a === "string" && (/^0x[0-9a-f]{40}$/.test(a) || chainOf(a) !== "eth" && CHAINS[chainOf(a)].addr.test(rawOf(a)));
+
+export const isHash = (h, chain = "eth") => typeof h === "string" && !!CHAINS[chain] && CHAINS[chain].hash.test(h);
+
+export const addrUrl = a => isAddr(a) ? CHAINS[chainOf(a)].a + rawOf(a) : null;
+
+export const txUrl = (h, chain = "eth") => isHash(h, chain) ? CHAINS[chain].tx + h : null;
+
+export const short = a => {
+  const r = rawOf(a);
+  return r.length > 14 ? r.slice(0, 6) + "…" + r.slice(-4) : r;
+};
 
 export const big = (v, d) => {
   try {
@@ -169,7 +230,9 @@ export const isSide = n => !!n && (n.role === "attacker" || n.role === "hub" || 
 
 export const STABLE = new Set([ "USDT", "USDC", "USD1", "RLUSD", "USDE", "DAI", "FDUSD", "PYUSD", "TUSD", "USDS" ]);
 
-export const assetClass = sym => sym === "ETH" || sym === "WETH" || /ETH$/.test(sym) ? "eth" : STABLE.has((sym || "").toUpperCase()) ? "usd" : "tok";
+export const COINS = new Set([ "BTC", "TRX", "XRP", "SOL", "AVAX", "BNB", "WBTC" ]);
+
+export const assetClass = sym => sym === "ETH" || sym === "WETH" || /ETH$/.test(sym) || COINS.has(sym) ? "eth" : STABLE.has((sym || "").toUpperCase()) ? "usd" : "tok";
 
 export function venueKind(name) {
   if (/aave|compound|morpho|spark|lending|euler|fluid/i.test(name)) return [ "Lending protocols", "Lending (Aave and others)" ];
@@ -187,6 +250,7 @@ export function makeState() {
     events: new Map,
     freezes: new Map,
     ethPrice: 0,
+    prices: {},
     block: 0,
     health: {
       ok: 0,
@@ -208,7 +272,7 @@ export function addNode(S, o) {
   const k = KNOWN[addr];
   if (k && k.venue) return null;
   const n = {
-    link: addr.startsWith("0x") ? addr : null,
+    link: isAddr(o.addr) ? o.addr : null,
     depth: 0,
     eth: 0,
     tokens: [],
@@ -243,11 +307,11 @@ export function loadData(S, d) {
     })) out.nodes++;
   }
   for (const [a, k] of d.alias || []) if (isAddr(a) && typeof k === "string") S.alias.set(a, k);
-  for (const e of d.events) if (e && !S.events.has(e.key) && isAddr(e.from) && isAddr(e.to) && isHash(e.hash)) {
+  for (const e of d.events) if (e && !S.events.has(e.key) && isAddr(e.from) && isAddr(e.to) && isHash(e.hash, chainOf(e.from))) {
     S.events.set(e.key, e);
     out.events.push(e);
   }
-  for (const z of d.freezes || []) if (z && !S.freezes.has(z.key) && isAddr(z.addr) && isHash(z.hash)) {
+  for (const z of d.freezes || []) if (z && !S.freezes.has(z.key) && isAddr(z.addr) && isHash(z.hash, chainOf(z.addr))) {
     S.freezes.set(z.key, z);
     out.freezes.push(z);
   }
@@ -255,6 +319,7 @@ export function loadData(S, d) {
     S.block = d.block;
     S.ethPrice = d.ethPrice || S.ethPrice;
   }
+  if (d.prices && typeof d.prices === "object") for (const [k, v] of Object.entries(d.prices)) if (COINS.has(k) && Number(v) > 0) S.prices[k] = Number(v);
   if (d.watch) S.watch = d.watch;
   S.generatedAt = d.generatedAt;
   S.failures = d.failures || 0;
@@ -498,7 +563,7 @@ export function makeClient(S, {gap = 140} = {}) {
     }
   }
   async function pollVictims() {
-    const vs = [ ...S.nodes.values() ].filter(n => n.role === "victim");
+    const vs = [ ...S.nodes.values() ].filter(n => n.role === "victim" && chainOf(n.addr) === "eth");
     const calls = [];
     vs.forEach(n => {
       calls.push([ "eth_getBalance", [ n.addr, "latest" ] ]);
@@ -532,7 +597,7 @@ export function makeClient(S, {gap = 140} = {}) {
     }
   }
   async function pollBlacklist() {
-    const side = [ ...S.nodes.values() ].filter(n => isSide(n) || n.role === "victim");
+    const side = [ ...S.nodes.values() ].filter(n => (isSide(n) || n.role === "victim") && chainOf(n.addr) === "eth");
     const calls = [];
     side.forEach(n => {
       calls.push([ "eth_call", [ {
@@ -613,7 +678,7 @@ export function makeClient(S, {gap = 140} = {}) {
       fail("delegation check", e);
     }
     try {
-      const side = [ ...S.nodes.values() ].filter(n => isSide(n) && isAddr(n.addr));
+      const side = [ ...S.nodes.values() ].filter(n => isSide(n) && isAddr(n.addr) && chainOf(n.addr) === "eth");
       const res = await rpc(side.map(n => [ "eth_call", [ {
         to: AAVE_POOL,
         data: "0xbf92857c" + n.addr.slice(2).padStart(64, "0")
@@ -716,7 +781,7 @@ export function totalsAt(S, t, since = 0) {
   }
   for (const n of S.nodes.values()) {
     let held, frozen = 0;
-    if (live) {
+    if (live && chainOf(n.addr) === "eth") {
       held = n.eth * S.ethPrice + n.tokens.reduce((s, x) => s + x.usd, 0);
       frozen = n.tokens.reduce((s, x) => s + (x.sym === "USDT" && n.usdtBl || x.sym === "USDC" && n.usdcBl || x.sym === "RLUSD" && n.rlusdBl ? x.usd : 0), 0);
     } else {
@@ -749,8 +814,8 @@ const ISSUER_OF = {
 };
 
 export function tankSteps(S, since) {
-  const value = e => e.sym === "ETH" || e.sym === "WETH" ? e.amt * S.ethPrice : STABLE.has((e.sym || "").toUpperCase()) ? e.amt : e.usd;
-  const cat = n => !n ? "other" : n.role === "victim" ? "victim" : isSide(n) ? "side" : n.role === "venue" ? "venue" : n.role === "recovered" ? "back" : "other";
+  const value = e => e.sym === "ETH" || e.sym === "WETH" ? e.amt * S.ethPrice : S.prices[e.sym] ? e.amt * S.prices[e.sym] : STABLE.has((e.sym || "").toUpperCase()) ? e.amt : e.usd;
+  const cat = n => !n ? "other" : n.role === "victim" ? "victim" : isSide(n) ? "side" : n.role === "venue" ? "venue" : n.role === "recovered" ? "back" : n.role === "seized" ? "seized" : "other";
   const evs = [ ...S.events.values() ].filter(e => e.t >= since && e.usd > 0).sort((a, b) => a.t - b.t || (a.key < b.key ? -1 : 1));
   const fzs = [ ...S.freezes.values() ].map(z => ({
     z,
@@ -794,7 +859,7 @@ export function tankSteps(S, since) {
       if (b < -1) neg.set(k, b); else neg.delete(k);
     }
     const src = fc === "side" ? isFz(fn, e.sym) ? "F" : "M" : null, dst = tc === "side" ? isFz(tn, e.sym) ? "F" : "M" : null;
-    if (fc === "victim" && dst) push(e.t, "B", dst, v, cls, e.key); else if (src && dst) push(e.t, src, dst, v, cls, e.key); else if (src) push(e.t, src, tc === "venue" ? "V" : tc === "back" || tc === "victim" ? "R" : "X", v, cls, e.key); else if (dst) push(e.t, fc === "venue" ? "V" : fc === "back" ? "R" : "X", dst, v, cls, e.key);
+    if (fc === "victim" && dst) push(e.t, "B", dst, v, cls, e.key); else if (src && dst) push(e.t, src, dst, v, cls, e.key); else if (src) push(e.t, src, tc === "seized" ? "F" : tc === "venue" ? "V" : tc === "back" || tc === "victim" ? "R" : "X", v, cls, e.key); else if (dst) push(e.t, fc === "venue" ? "V" : fc === "back" ? "R" : "X", dst, v, cls, e.key);
   }
   freezeUpTo(Infinity);
   const missing = [ ...neg.values() ].reduce((s, b) => s - b, 0);
