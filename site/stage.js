@@ -36,11 +36,11 @@ const BORE = .24, PIPE_R = .27, BEND = .3, RP = .03;
 
 const PACE_LO = 700, PACE_HI = 1800;
 
-const ORANGE = 13391104, KIND_HEX = [ 4174591, 3135114, 16726832 ];
+const BIN_HEX = 10178047, KIND_HEX = [ 4174591, 3135114, 16726832 ];
 
 export const KIND_NAME = [ "Frozen", "Dollar tokens", "Coins" ];
 
-const PCOL = [ ORANGE, KIND_HEX[2], KIND_HEX[1], KIND_HEX[0] ], COL_OF = [ 3, 2, 1 ];
+const PCOL = [ BIN_HEX, KIND_HEX[2], KIND_HEX[1], KIND_HEX[0] ], COL_OF = [ 3, 2, 1 ];
 
 const ROW_NAME = [ "Binance’s wallets", "The attacker", "Wallets it was split into", "Where it went" ];
 
@@ -223,7 +223,7 @@ export function makeTanks({reduced, renderer}) {
   let model = null, SL = null, V = [], modelSig = "", routeKeys = [];
   const lv = new Float64Array(64 * 3);
   function makeVessel(m) {
-    const bin = m.kind === "bin", col = bin ? [ ORANGE, ORANGE, ORANGE ] : KIND_HEX;
+    const bin = m.kind === "bin", col = bin ? [ BIN_HEX, BIN_HEX, BIN_HEX ] : KIND_HEX;
     const u = {
       uCol: {
         value: new THREE.Color(col[2])
@@ -966,7 +966,7 @@ export function makeTanks({reduced, renderer}) {
       u.uL1.value = v.m.kind === "bin" || h0 <= 0 ? -1 : h0;
       u.uL2.value = v.m.kind === "bin" ? -1 : h1;
       u.uIceTop.value = v.ice;
-      u.uCol.value.setHex(v.m.kind === "bin" ? ORANGE : KIND_HEX[[ 2, 2, 1, 0 ][v.topCol]]);
+      u.uCol.value.setHex(v.m.kind === "bin" ? BIN_HEX : KIND_HEX[[ 2, 2, 1, 0 ][v.topCol]]);
       v.pool.material.color.copy(u.uCol.value);
       if (v.m.kind === "bin") v.mark.position.y = v.b + model.start[k][2] * v.per;
       v.pool.material.opacity = has ? Math.min(.32, .05 + hgt / v.H * .3 + v.inflow * .12) : 0;

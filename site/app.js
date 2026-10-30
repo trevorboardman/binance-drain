@@ -12,7 +12,7 @@ import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 
 import { makeState, addNode, loadData, node, isSide, isAddr, isHash, addrUrl, txUrl, chainOf, CHAINS, totalsAt, tankSteps, tankLevels, assetClass, STABLE, short, sleep, ATTACKER, B14, DELEGATE, SEEDS } from "./core.js?v=12";
 
-import { makeTanks, DOT, COLS, BANDS, BAND_NAME, BAND_SHADE } from "./stage.js?v=3";
+import { makeTanks, DOT, COLS, BANDS, BAND_NAME, BAND_SHADE } from "./stage.js?v=4";
 
 import { stageModel } from "./stage-data.js?v=1";
 
