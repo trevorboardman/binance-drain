@@ -2,7 +2,7 @@ name: Update data and publish
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '4-59/10 * * * *'
     - cron: '17 */6 * * *'
   workflow_dispatch:
     inputs:
