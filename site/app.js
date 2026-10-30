@@ -598,15 +598,33 @@ function fitCamera() {
     box.expandByPoint(p.clone().addScalar(-G.rad[i]));
   });
   if (G.heads) G.heads.forEach(hd => box.expandByPoint(hd.p.clone().add(new THREE.Vector3(0, 4, 0))));
-  if (FLAT && !G.vert) box.max.x += 75;
   const size = box.getSize(new THREE.Vector3), mid = box.getCenter(new THREE.Vector3);
   const top = OG ? h * .42 : narrow() ? slot + NOTE_ROOM : $("head").getBoundingClientRect().bottom - sb.top - 40;
-  const bot = (narrow() || OG ? $("figs") : $("when")).getBoundingClientRect().top - sb.top + (narrow() && !OG ? -62 : 6);
-  const band = Math.max(h * .3, bot - top), centre = (top + bot) / 2;
-  camera.setViewOffset(w, h, 0, h / 2 - centre, w, h);
+  const bot = (narrow() || OG ? $("figs") : $("when")).getBoundingClientRect().top - sb.top + (narrow() && !OG ? -62 : FLAT && !OG ? -10 : 6);
   const fov = camera.fov * Math.PI / 180;
-  const fitH = (size.y + 6) / 2 / Math.tan(fov / 2) / (band / h), fitW = (size.x + 6) / 2 / Math.tan(fov / 2) / camera.aspect;
-  cam.dist = Math.max(fitH, fitW) + size.z / 2;
+  const fit = (bw, bh) => Math.max((size.y + 6) / 2 / Math.tan(fov / 2) / (bh / h), (size.x + 6) / 2 / Math.tan(fov / 2) / camera.aspect / (bw / w));
+  const band = Math.max(h * .3, bot - top);
+  const LR = FLAT && !G.vert && !OG ? 160 : 0;
+  let dist = fit(w - LR - (LR ? 24 : 0), band), cx = (w - LR) / 2, cy = (top + bot) / 2;
+  if (FLAT && !G.vert && !OG) {
+    const hb = [ ...$("head").querySelectorAll("h1, .dek") ].filter(e => e.offsetParent).map(e => {
+      const r = document.createRange();
+      r.selectNodeContents(e);
+      return r.getBoundingClientRect();
+    });
+    const left = Math.max(...hb.map(r => r.right)) - sb.left + 36, right = w - 24 - LR;
+    const top2 = $("clockBox").getBoundingClientRect().bottom - sb.top + 34, bot2 = $("when").getBoundingClientRect().top - sb.top - 10;
+    if (right - left > w * .33 && bot2 - top2 > h * .3) {
+      const d2 = fit(right - left, bot2 - top2);
+      if (d2 < fit(w - LR - 24, Math.max(40, bot - top)) * .92) {
+        dist = d2;
+        cx = (left + right) / 2;
+        cy = (top2 + bot2) / 2;
+      }
+    }
+  }
+  camera.setViewOffset(w, h, w / 2 - cx, h / 2 - cy, w, h);
+  cam.dist = dist + size.z / 2;
   cam.target.copy(mid);
 }
 
@@ -747,13 +765,20 @@ function buildLabels() {
 
 const v3 = new THREE.Vector3;
 
+function headRoom(hd) {
+  const w = canvas.clientWidth, i = G.heads.indexOf(hd), nx = G.heads[i + 1];
+  if (G.vert || !nx) return 999;
+  const a = v3.copy(hd.p).project(camera).x, b = v3.copy(nx.p).project(camera).x;
+  return Math.max(40, (b - a) / 2 * w - 12);
+}
+
 function placeLabels(now) {
   const w = canvas.clientWidth, h = canvas.clientHeight;
   const text = !placeLabels.at || now - placeLabels.at > 200;
   const placed = (G.heads || []).map(hd => {
     v3.copy(hd.p).project(camera);
     const x = (v3.x + 1) / 2 * w, y = (1 - v3.y) / 2 * h;
-    return hd.align === "c" ? [ x - 90, y - 14, x + 90, y + 2 ] : [ x - 4, y - 14, x + hd.text.length * 8 + 4, y + 2 ];
+    return hd.align === "c" ? [ x - 90, y - 14, x + 90, y + 2 ] : [ x - 4, y - (G.vert ? 14 : 26), x + Math.min(hd.text.length * 8, headRoom(hd)) + 4, y + 2 ];
   });
   for (const {el, i, n} of labs.values()) {
     const side = FLAT && !G.vert;
@@ -780,8 +805,9 @@ function placeLabels(now) {
   if (text) placeLabels.at = now;
   if (text && G.heads) {
     const html = G.heads.map(hd => {
+      const mw = headRoom(hd);
       v3.copy(hd.p).project(camera);
-      return `<span class="${hd.align}" style="left:${((v3.x + 1) / 2 * w).toFixed(0)}px;top:${((1 - v3.y) / 2 * h).toFixed(0)}px">${esc(hd.text)}</span>`;
+      return `<span class="${hd.align}" style="left:${((v3.x + 1) / 2 * w).toFixed(0)}px;top:${((1 - v3.y) / 2 * h).toFixed(0)}px${mw < 400 ? ";white-space:normal;max-width:" + mw.toFixed(0) + "px" : ""}">${esc(hd.text)}</span>`;
     }).join("");
     if ($("laneNames").innerHTML !== html) $("laneNames").innerHTML = html;
   }
