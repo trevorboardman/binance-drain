@@ -330,6 +330,8 @@ function record(S, ev, fromParty, toParty) {
     role: "inflow"
   }) : venueFor(S, fromParty);
   if ((!tn || tn.role === "inflow") && fn && isSide(fn)) tn = classify(S, toParty, fn, ev.usd);
+  if (!tn && fn && isSide(fn) && !isWallet(toParty)) tn = venueFor(S, toParty);
+  if (!fn && isSide(tn) && !isWallet(fromParty)) fn = venueFor(S, fromParty);
   S.events.set(ev.key, ev);
   if (S.onEvent) S.onEvent(ev);
 }

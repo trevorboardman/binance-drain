@@ -77,7 +77,7 @@ h1 .amt { color: var(--vault); font-stretch: 100%; font-variant-numeric: tabular
 .fig[data-k="M"]::before { content: '='; }
 .fig .k { font: 600 11px/1.3 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--mute); display: flex; gap: 7px; align-items: center; justify-content: center; }
 .fig .k i { width: 8px; height: 8px; border-radius: 50%; }
-.fig .v { font: 800 clamp(22px, 2.5vw, 38px)/1 var(--wide); font-variant-numeric: tabular-nums; margin-top: 6px; text-shadow: 0 0 24px currentColor; }
+.fig .v { font: 800 clamp(22px, 2.5vw, 38px)/1 var(--wide); font-variant-numeric: tabular-nums; margin-top: 6px; text-shadow: 0 0 14px color-mix(in srgb, currentColor 30%, transparent); }
 .fig .d { font-size: 12px; color: var(--mute); max-width: 24ch; margin: 6px auto 0; line-height: 1.4; }
 .fig .s { display: none; }
 .ticks { position: absolute; inset: 0; pointer-events: none; }
@@ -160,7 +160,7 @@ body.v-map .ticks, body:not(.v-map) .labels, body:not(.v-map) .hint, body:not(.v
   .fig .k .l { display: none; }
   .fig .k .s { display: inline; }
   .fig .d { display: none; }
-  .fig .v { font-size: 12px; margin-top: 3px; text-shadow: 0 0 12px currentColor; }
+  .fig .v { font-size: 12px; margin-top: 3px; text-shadow: 0 0 8px color-mix(in srgb, currentColor 30%, transparent); }
   .ticks span { font-size: 9px; }
   .scrub { height: 58px; }
   .when, .hint { display: none; }
@@ -174,8 +174,36 @@ body.v-map .ticks, body:not(.v-map) .labels, body:not(.v-map) .hint, body:not(.v
 
 .page { max-width: 1240px; margin: 0 auto; padding-left: max(22px, env(safe-area-inset-left, 0px)); padding-right: max(22px, env(safe-area-inset-right, 0px)); }
 section.block { padding-block: 64px 0; }
+.how { margin: 0 0 40px; max-width: 980px; }
+.how-lede { font-size: clamp(17px, 1.6vw, 21px); line-height: 1.5; max-width: 52ch; margin: 0 0 22px; color: #d6dce5; }
+.how-lede b { color: var(--ink); }
+.sig-grid { display: grid; grid-template-columns: repeat(25, minmax(0, 1fr)); gap: 4px; max-width: 860px; }
+.sig-grid span { aspect-ratio: 1 / 1.25; display: grid; place-items: end center; padding-bottom: 3px; font: 500 9px/1 var(--mono); color: transparent; border: 1px solid var(--faint); opacity: .25; transition: opacity .25s, background-color .25s, border-color .25s, color .25s, transform .25s; }
+.sig-grid.on span { opacity: 1; }
+.sig-grid.on span.used { background: #232a35; border-color: #2c3440; color: #6b7584; text-decoration: line-through; text-decoration-color: #4a5361; }
+.sig-grid.on span.hit { background: var(--vault); border-color: var(--vault); color: #1a1205; font-weight: 700; transform: scale(1.12); box-shadow: 0 0 18px rgba(243, 178, 58, .35); }
+.sig-grid.on span.ahead { border-style: dashed; color: #4a5361; }
+.sig-key { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 14px 0 0; font: 500 11.5px/1.3 var(--mono); color: var(--mute); }
+.sig-key i { display: inline-block; width: 10px; height: 12px; margin-right: 8px; vertical-align: -2px; border: 1px solid var(--faint); }
+.sig-key i.used { background: #232a35; } .sig-key i.hit { background: var(--vault); border-color: var(--vault); } .sig-key i.ahead { border-style: dashed; }
+.sig-why { color: #c2c9d4; font-size: 15px; max-width: 64ch; margin: 14px 0 0; }
+.chain { list-style: none; padding: 0; margin: 34px 0 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--rule); }
+.chain li { padding: 14px 20px 0 0; position: relative; }
+.chain time { display: block; font: 600 12px var(--mono); color: var(--vault); letter-spacing: .06em; }
+.chain b { display: block; font: 800 18px/1.2 var(--wide); margin: 6px 0 4px; }
+.chain span { color: #c2c9d4; font-size: 14.5px; }
+.unknown { margin: 30px 0 0; padding: 16px 0 0; border-top: 1px solid var(--rule); max-width: 64ch; }
+.unknown h3 { font: 800 18px/1.2 var(--wide); margin: 0 0 6px; }
+.unknown p { margin: 0; color: #c2c9d4; font-size: 15px; }
+.howlink { color: var(--vault); font-weight: 600; white-space: nowrap; text-decoration: none; margin-left: 10px; pointer-events: auto; }
+@media (max-width: 760px) {
+  .sig-grid { grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 3px; }
+  .sig-grid span { font-size: 8px; }
+  .chain { grid-template-columns: minmax(0, 1fr); }
+  .chain li { padding: 12px 0; border-bottom: 1px solid var(--rule); }
+}
 h2 { font: 900 clamp(30px, 4vw, 52px)/.95 var(--wide); font-stretch: 115%; margin: 0 0 26px; letter-spacing: -.01em; text-wrap: balance; }
-.steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 1px solid var(--rule); }
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--rule); }
 @media (min-width: 761px) and (max-width: 1180px) { h1 { max-width: calc(100% - min(360px, 40vw) - 28px); } }
 @media (max-width: 1100px) { .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .steps { grid-template-columns: minmax(0, 1fr); } }
@@ -253,7 +281,7 @@ body.og .head { top: 34px; }
     <div class="head pad" id="head">
       <p class="kicker">Ethereum · <span class="long">Thursday </span>29 Oct<span class="long">ober</span> 2026</p>
       <h1><span class="amt" id="hOut">$3.3 billion</span> left Binance in one night</h1>
-      <p class="dek plain-only">Every dot <span class="dot-key"></span> is <b id="unitTxt">$1 million</b> of it.</p>
+      <p class="dek plain-only">Every dot <span class="dot-key"></span> is <b id="unitTxt">$1 million</b> of it.<a class="howlink" href="#how">How they got in ↓</a></p>
       <p class="dek tech-only">1 dot = <span id="unitTxt2">$1M</span> at today's prices. EIP-7702 delegation on Binance 14, one-call sweep, onward flows of $1M+ followed four hops.</p>
     </div>
     <div class="clock pad" id="clockBox"><div class="t" id="clock">20:18:00</div><div class="s" id="clockS">replay · UTC</div></div>
@@ -289,16 +317,26 @@ body.og .head { top: 34px; }
 <main class="page">
   <section class="block">
     <h2>How it happened</h2>
+    <div class="how" id="how">
+      <p class="how-lede">Binance wallet 14 was an ordinary wallet: anything signed with its key, it obeys. At 20:20:59 the attacker sent <a href="https://etherscan.io/tx/0xad99264d5532ae0dd04b2004eebda05f25657e70dacb764f7ac8d4ccd051298b" target="_blank" rel="noopener">one transaction</a> carrying <b>50 signatures made with that key</b>, each one telling the wallet to run the attacker's program from then on.</p>
+      <div class="sig">
+        <div class="sig-grid" id="sigGrid" role="img" aria-label="50 signatures for counter values 18,914,775 to 18,914,824: the first 34 were already used by Binance, the 35th landed, the last 15 were never reached."></div>
+        <div class="sig-key"><span><i class="used"></i>Counter already used by Binance: 34</span><span><i class="hit"></i>The one that landed: 18,914,809</span><span><i class="ahead"></i>Never reached: 15</span></div>
+        <p class="sig-why">A signature like this works for one value of the wallet's transaction counter. Binance's own system was sending from wallet 14 all evening, so the counter kept moving. The attacker signed for the next 50 values and sent them all at once; whichever matched when the block was built would take effect. The 35th did.</p>
+      </div>
+      <ol class="chain">
+        <li><time>15:59</time><b>The program</b><span>The attacker <a href="https://etherscan.io/tx/0x97408e7562eb2b28efcd24ba01609607b5749bc89448d007fa8b50ecf290329c" target="_blank" rel="noopener">puts a program on the chain</a> that empties a wallet in one call and takes orders only from them.</span></li>
+        <li><time>20:20:59</time><b>The handover</b><span>Wallet 14 accepts the 35th signature and starts running that program.</span></li>
+        <li><time>20:24:23</time><b>The sweep</b><span><a href="https://etherscan.io/tx/0x53bd38b816c23e74134786c29a8c18d792777998a3b9326047b583100e88e2f3" target="_blank" rel="noopener">One call</a>: 167,464 Ether and 63 other tokens leave. The fee was under $1.</span></li>
+        <li><time>00:10:35</time><b>Closed</b><span>Binance <a href="https://etherscan.io/tx/0xafbf94c92a8d749988411669fa14d4f8866d9b4420b4ebd299f28e958dac7209" target="_blank" rel="noopener">signs the wallet back</a> to plain. It was open for 3 h 49 min.</span></li>
+      </ol>
+      <div class="unknown"><h3>What the chain can't tell us</h3>
+        <p>How the attacker got signatures from wallet 14's key. Binance kept using that key all night, so it was not taken away: either someone else has a copy, or Binance's signing system could be made to sign. Nothing on the chain shows who or what did the signing, and that includes the claims of an AI attack. As of 30 Oct 03:30 UTC Binance has not said.</p></div>
+    </div>
     <div class="steps">
       <div class="step"><time>13:51 UTC</time><h3>A rehearsal</h3>
         <p>The attacker tests the same trick on three wallets of their own.</p>
         <p class="tx tech-only">7702 delegations of 0x8378…bc3 and 0x9c29…b6b to a first delegate 0x19be…f2bf at 13:51; 0x43ae…04bd to the final delegate at 16:20. Sweeps to 0x24a4…a4de. The attacker EOA was funded by three 0.1 ETH Tornado Cash withdrawals and 1.08 ETH from a second Tornado-funded wallet.</p></div>
-      <div class="step"><time>20:20:59 UTC</time><h3>Wallet 14 changes hands</h3>
-        <p>A transaction signed with the wallet's own key hands it to the attacker's program.</p>
-        <p class="tx tech-only">Type-4 tx <a href="https://etherscan.io/tx/0xad99264d5532ae0dd04b2004eebda05f25657e70dacb764f7ac8d4ccd051298b" target="_blank" rel="noopener">0xad99…298b</a> sets 0x28c6…1d60's EIP-7702 delegation to 0x63e8…6fae. All 50 authorizations recover to B14 and cover nonces 18,914,775–18,914,824; B14 had used 18,914,775 at 20:17:47, and 18,914,809 applied.</p></div>
-      <div class="step"><time>20:24:23 UTC</time><h3><span id="sweepAmt">$2.5 billion</span> in one transfer</h3>
-        <p>167,464 Ether and 63 other tokens leave at once. The fee: under $1.</p>
-        <p class="tx tech-only"><a href="https://etherscan.io/tx/0x53bd38b816c23e74134786c29a8c18d792777998a3b9326047b583100e88e2f3" target="_blank" rel="noopener">0x53bd…e2f3</a>: 0x7c86…5ca0 calls 0x8a179be4 on B14, now running the delegate's code, which sweeps to Exploiter 2. The delegate accepts calls only from 0x7c86, funded through Tornado Cash on 28 Oct.</p></div>
       <div class="step"><time>20:26–21:00</time><h3>The money splits up</h3>
         <p>Two more Binance wallets are emptied. The haul spreads over dozens of new wallets, gets swapped, and gets borrowed against.</p>
         <p class="tx tech-only">B16 → E2 (<a href="https://etherscan.io/tx/0x51f263fa50966df6bbd7f8c6e6e99e3791c94444f7c4343b2fef1ee2d62fd39f" target="_blank" rel="noopener">0x51f2…</a>); E2 → E8 (<a href="https://etherscan.io/tx/0x551d7961652e6d9835b11988908adf86ebe480badb4ce2d7d52193b2b1b02c76" target="_blank" rel="noopener">0x551d…</a>); Hot Wallet 34, a Circle MSCA owned by B14, → E2, 780M + 43M USDC (<a href="https://etherscan.io/tx/0xdc102dd89dded5a83f1008906883ffb7c81ff3b7d7965d8c7277d170b5e17481" target="_blank" rel="noopener">0xdc10…</a>). Several hop wallets are themselves 7702-delegated.</p></div>
@@ -356,6 +394,6 @@ body.og .head { top: 34px; }
   </footer>
 </main>
 
-<script type="module" src="app.js?v=14"></script>
+<script type="module" src="app.js?v=19"></script>
 </body>
 </html>

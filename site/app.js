@@ -10,9 +10,9 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 
-import { makeState, addNode, loadData, node, isSide, isAddr, isHash, totalsAt, tankSteps, tankLevels, assetClass, STABLE, short, sleep, ATTACKER, B14, DELEGATE, SEEDS } from "./core.js?v=10";
+import { makeState, addNode, loadData, node, isSide, isAddr, isHash, totalsAt, tankSteps, tankLevels, assetClass, STABLE, short, sleep, ATTACKER, B14, DELEGATE, SEEDS } from "./core.js?v=11";
 
-import { makeTanks, DOT, COLS } from "./tanks.js?v=6";
+import { makeTanks, DOT, COLS } from "./tanks.js?v=8";
 
 const Q = new URLSearchParams(location.search);
 
@@ -1112,6 +1112,34 @@ $("scrub").addEventListener("keydown", e => {
   e.preventDefault();
 });
 
+const SIG_FIRST = 18914775, SIG_HIT = 18914809, SIG_N = 50;
+
+function buildSig() {
+  const g = $("sigGrid");
+  if (!g || g.children.length) return;
+  for (let i = 0; i < SIG_N; i++) {
+    const n = SIG_FIRST + i, c = document.createElement("span");
+    c.className = n < SIG_HIT ? "used" : n === SIG_HIT ? "hit" : "ahead";
+    c.textContent = String(n % 1e3).padStart(3, "0");
+    c.title = n.toLocaleString("en-US") + (n < SIG_HIT ? ": already used by Binance" : n === SIG_HIT ? ": took effect" : ": never reached");
+    if (!reduced) c.style.transitionDelay = i * 28 + (n === SIG_HIT ? 250 : 0) + "ms";
+    g.appendChild(c);
+  }
+  if (reduced || OG || !("IntersectionObserver" in window)) {
+    g.classList.add("on");
+    return;
+  }
+  const io = new IntersectionObserver(es => {
+    if (es.some(e => e.isIntersecting)) {
+      g.classList.add("on");
+      io.disconnect();
+    }
+  }, {
+    threshold: .5
+  });
+  io.observe(g);
+}
+
 function setPlaying(p) {
   playing = p;
   $("play").setAttribute("aria-label", p ? "Pause replay" : "Play replay");
@@ -1228,9 +1256,9 @@ function frame(now) {
   $("clock").textContent = hms(ph);
   $("clockS").textContent = (live ? "live · " : "replay · ") + new Date(ph).toISOString().slice(0, 10) + " UTC";
   if (glOK && built && view === "totals") {
-    bloom.strength = narrow() ? .5 : .6;
-    bloom.radius = .4;
-    bloom.threshold = .36;
+    bloom.strength = narrow() ? .18 : .22;
+    bloom.radius = .25;
+    bloom.threshold = .6;
     TK.frame(now, live ? Infinity : ph);
     renderPass.scene = TK.scene;
     renderPass.camera = TK.cam;
@@ -1558,6 +1586,7 @@ async function boot() {
     }).observe(canvas);
   }
   setView(view);
+  buildSig();
   const share = location.href.split(/[?#]/)[0];
   $("shareLi").href = "https://www.linkedin.com/sharing/share-offsite/?url=" + encodeURIComponent(share);
   $("copyLink").addEventListener("click", async () => {

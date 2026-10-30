@@ -187,6 +187,26 @@ export function makeTanks({reduced}) {
       carry.set(k, c - n);
       if (n > 0) groups.set(k, (groups.get(k) || 0) + n);
     }
+    for (const [k, n] of [ ...groups ]) {
+      const r = k[1] + k[0], m = Math.min(n, groups.get(r) || 0);
+      if (!m || !(k[1] === "V" || k[1] === "X")) continue;
+      groups.set(k, n - m);
+      groups.set(r, groups.get(r) - m);
+      const o = k[0], from = levelsAt(t0)[o], c = Math.min(m, CAP - 6e3 - flights.length), spread = Math.min(2.6, .2 + c / 900);
+      for (let j = 0; j < c; j++) {
+        const [sx, sy] = slotXY(o, Math.max(0, Math.round(from / DOT) - 1 - j));
+        flights.push({
+          a: o,
+          b: o,
+          via: k[1],
+          sx,
+          sy,
+          t0: now + j / c * spread * 1e3,
+          dur: 1500 + rnd() * 700,
+          seq: seq++
+        });
+      }
+    }
     for (const [k, n0] of groups) {
       const a = k[0], b = k[1];
       const n = Math.min(n0, CAP - 6e3 - flights.length);
@@ -242,6 +262,7 @@ export function makeTanks({reduced}) {
     for (const f of flights) pend[f.b]++;
     const shown = {};
     for (const k of [ "M", "F", "V", "R", "X" ]) shown[k] = Math.max(0, Math.round(L[k] / DOT) - pend[k]);
+    shown.B = Math.max(0, Math.round(L.B / DOT));
     const nextSlot = {
       ...shown
     };
@@ -256,20 +277,35 @@ export function makeTanks({reduced}) {
         put(f.sx, f.sy, C[f.a], .95, fly);
         continue;
       }
-      const e = p * p * (3 - 2 * p), u = 1 - e;
-      const lift = 30 + .22 * Math.abs(ex - f.sx) + .15 * Math.abs(ey - f.sy);
-      const cx = (f.sx + ex) / 2, cy = Math.min(f.sy, ey) - lift;
-      const x = u * u * f.sx + 2 * u * e * cx + e * e * ex, y = u * u * f.sy + 2 * u * e * cy + e * e * ey;
-      tmp.copy(C[f.a]).lerp(C[f.b], e);
-      put(x, y, tmp, 1, fly * (1 + .5 * Math.sin(p * Math.PI)));
+      let ax = f.sx, ay = f.sy, q = p, ca = C[f.a], cb = C[f.b];
+      if (f.via) {
+        const [vx, vy] = slotXY(f.via, shown[f.via]);
+        if (p < .5) {
+          ex = vx;
+          ey = vy;
+          q = p * 2;
+          cb = C[f.via];
+        } else {
+          ax = vx;
+          ay = vy;
+          q = p * 2 - 1;
+          ca = C[f.via];
+        }
+      }
+      const e = q * q * (3 - 2 * q), u = 1 - e;
+      const lift = 30 + .22 * Math.abs(ex - ax) + .15 * Math.abs(ey - ay);
+      const cx = (ax + ex) / 2, cy = Math.min(ay, ey) - lift;
+      const x = u * u * ax + 2 * u * e * cx + e * e * ex, y = u * u * ay + 2 * u * e * cy + e * e * ey;
+      tmp.copy(ca).lerp(cb, e);
+      put(x, y, tmp, .9, fly * (1 + .3 * Math.sin(q * Math.PI)));
       if (n >= CAP - 1) break;
     }
-    const tw = k => k === "F" ? .62 + .16 * Math.sin(clock * 1.3) : k === "X" ? .45 : .85;
-    for (const k of [ "M", "F", "V", "R", "X" ]) {
+    const tw = k => k === "B" ? .45 : k === "F" ? .7 + .06 * Math.sin(clock * 1.3) : k === "X" ? .45 : .85;
+    for (const k of [ "B", "M", "F", "V", "R", "X" ]) {
       const a0 = tw(k);
       for (let j = 0; j < shown[k] && n < CAP - 1; j++) {
         const [x, y] = slotXY(k, j);
-        const a = k === "F" ? a0 + .14 * Math.sin(clock * 2.1 + j * 1.7) : a0;
+        const a = k === "F" ? a0 + .05 * Math.sin(clock * 2.1 + j * 1.7) : a0;
         put(x, y, C[k], a, dot);
       }
     }
