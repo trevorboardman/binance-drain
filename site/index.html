@@ -508,7 +508,7 @@ body.og .head { top: 34px; }
           <p>Ether moved by a contract inside a transaction (an internal transaction, such as the 167,464 ETH in the main sweep, or a router paying out a swap) is read from Blockscout's internal-transactions list, which its transactions list leaves out.</p>
           <p>The other chains: Bitcoin, Tron, XRP Ledger, Solana, Arbitrum, Optimism, Base and Avalanche are read the same way and add into the same totals: the Binance wallets that paid the attacker that night, every movement of $10K or more from there, and plain wallets that got $1M or more followed up to four hops. Each chain's own coin is valued at today's price. Tether's freezes on Tron and Avalanche count as frozen. On Arbitrum the attacker's funds were moved to a locked address at 00:18 on 30 Oct by a transaction sent from Ethereum; that counts as frozen too. BNB Chain was checked and showed nothing. The Binance wallets on the XRP Ledger carry Binance's verified name; on Bitcoin an outside label and its history; on the other chains their history only, because their explorers block automated reads.</p>
           <p>Not covered: USD1 and PAXG freezes reported by World Liberty and Paxos. Ripple reported freezing about $200M of RLUSD; 40.5M is frozen on Ethereum, and that is what this page counts.</p>
-          <p>Data comes from the <a href="https://eth.blockscout.com" target="_blank" rel="noopener">Blockscout</a> API and the <a href="https://ethereum-rpc.publicnode.com" target="_blank" rel="noopener">PublicNode</a> Ethereum RPC; for the other chains from mempool.space, TronGrid, the XRP Ledger's public servers, Solana's public RPC, each layer-2's public RPC and Routescan, with prices from Coinbase, Kraken and CoinGecko. A job that runs about every 10 minutes and publishes the result with this page; your browser reads only this site. <span id="health"></span></p>
+          <p>Data comes from the <a href="https://eth.blockscout.com" target="_blank" rel="noopener">Blockscout</a> API and the <a href="https://ethereum-rpc.publicnode.com" target="_blank" rel="noopener">PublicNode</a> Ethereum RPC; for the other chains from mempool.space, TronGrid, the XRP Ledger's public servers, Solana's public RPC, each layer-2's public RPC and Routescan, with prices from Coinbase, Kraken and CoinGecko. A job that runs about every 15 minutes and publishes the result with this page; your browser reads only this site. <span id="health"></span></p>
         </div>
       </div>
     </details>
@@ -519,13 +519,13 @@ body.og .head { top: 34px; }
       <a id="shareLi" href="#" target="_blank" rel="noopener">Share on LinkedIn</a>
       <button id="copyLink" type="button">Copy link</button>
     </div>
-    <p>How this works: a script reads the public blockchains every 10 minutes and adds up every transfer of $10,000 or more out of Binance's wallets and onward from the attacker's. Coins are valued at today's prices and dollar tokens at $1. The <a href="https://github.com/trevorboardman/binance-drain" target="_blank" rel="noopener">code is public</a>.</p>
+    <p>How this works: a script reads the public blockchains every 15 minutes and adds up every transfer of $10,000 or more out of Binance's wallets and onward from the attacker's. Coins are valued at today's prices and dollar tokens at $1. The <a href="https://github.com/trevorboardman/binance-drain" target="_blank" rel="noopener">code is public</a>.</p>
     <p>Independent. Not affiliated with Binance, Tether, Circle or Ripple. Not financial advice.</p>
     <p>Reported times: <a href="https://cryptoticker.io/en/binance-hack-hot-wallet-drained/" target="_blank" rel="noopener">CryptoTicker</a>, <a href="https://financefeeds.com/binance-hack-statement-edited-user-funds-safe/" target="_blank" rel="noopener">FinanceFeeds</a>, <a href="https://www.coindesk.com/business/2026/10/29/live-updates-bitcoin-clings-to-usd80-000-as-strategy-s-cushion-thins-before-earnings" target="_blank" rel="noopener">CoinDesk</a>, <a href="https://decrypt.co/382194/binance-hack-exit-ramps-defi-exchange-ethereum" target="_blank" rel="noopener">Decrypt</a>, <a href="https://finance.yahoo.com/markets/crypto/articles/binance-hacker-hunts-exit-ramps-225748214.html" target="_blank" rel="noopener">Yahoo Finance</a>, <a href="https://www.theblock.co/news/markets/2026-10-29-binance-investigating-hack-suspicious-outflows-5-billion-432171" target="_blank" rel="noopener">The Block</a>, <a href="https://techcrunch.com/2026/10/29/binance-pauses-withdrawals-as-hackers-suspected-of-stealing-billions-in-crypto/" target="_blank" rel="noopener">TechCrunch</a>.</p>
     <p id="snapInfo"></p>
   </footer>
 </main>
 
-<script type="module" src="app.js?v=58"></script>
+<script type="module" src="app.js?v=59"></script>
 </body>
 </html>

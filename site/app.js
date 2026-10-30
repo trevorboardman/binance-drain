@@ -1810,7 +1810,7 @@ function seedText() {
 }
 
 function snapLine() {
-  $("snapInfo").textContent = S.generatedAt ? `Updated ${S.generatedAt.slice(11, 16)} UTC, every 10 minutes.` : "The data did not load. Trying again every minute.";
+  $("snapInfo").textContent = S.generatedAt ? `Updated ${S.generatedAt.slice(11, 16)} UTC, every 15 minutes.` : "The data did not load. Trying again every minute.";
 }
 
 function stateLine() {

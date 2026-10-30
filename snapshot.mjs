@@ -71,14 +71,22 @@ const prices = {
 
 const chainFail = [];
 
-for (const id of CHAIN_MODS) {
+const chainT0 = Date.now();
+
+const got = await Promise.allSettled(CHAIN_MODS.map(async id => {
+  const t0 = Date.now();
+  const m = await (import(`./chains/${id}.mjs`));
+  const r = await m.fetchChain({
+    since: CHAIN_SINCE
+  });
+  console.log(id + " took " + Math.round((Date.now() - t0) / 1e3) + " s");
+  return r;
+}));
+
+CHAIN_MODS.forEach((id, i) => {
   try {
-    const t0 = Date.now();
-    const m = await (import(`./chains/${id}.mjs`));
-    for (const r of [].concat(await m.fetchChain({
-      since: CHAIN_SINCE
-    }))) mergeChain(S, prices, r);
-    console.log(id + " took " + Math.round((Date.now() - t0) / 1e3) + " s");
+    if (got[i].status === "rejected") throw got[i].reason;
+    for (const r of [].concat(got[i].value)) mergeChain(S, prices, r);
     S.health.ok++;
   } catch (e) {
     S.health.fail++;
@@ -86,7 +94,9 @@ for (const id of CHAIN_MODS) {
     chainFail.push(id);
     console.error(`chain ${id} failed: ${e.message}`);
   }
-}
+});
+
+console.log("chains took " + Math.round((Date.now() - chainT0) / 1e3) + " s together");
 
 if (full && chainFail.length) {
   console.error("a chain failed on a full run; wrote nothing");
