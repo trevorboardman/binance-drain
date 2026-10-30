@@ -37,15 +37,16 @@ jobs:
       - name: Rebuild data.json from the chain
         if: github.event_name != 'push'
         run: node snapshot.mjs ${{ (github.event.schedule == '17 */6 * * *' || inputs.full) && '--full' || '' }}
-      - name: Commit data.json
+      - name: Commit data.json and market.json
         id: commit
         if: github.event_name != 'push'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add site/data.json
+          git add site/data.json site/market.json
           if git diff --cached --quiet; then echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0; fi
           git commit -m "data.json $(date -u '+%Y-%m-%d %H:%M') UTC"
+          git pull --rebase -q origin main
           git push
           echo "changed=true" >> "$GITHUB_OUTPUT"
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d

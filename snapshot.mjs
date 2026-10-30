@@ -207,3 +207,30 @@ const data = {
 fs.writeFileSync(FILE, JSON.stringify(data));
 
 console.log(`wrote site/data.json (${full ? "full" : "update"}): ${data.nodes.length} wallets, ${data.events.length} movements, ${data.freezes.length} freezes, block ${S.block}, ${((Date.now() - t0) / 1e3).toFixed(0)} s, ${S.health.fail} of ${calls} calls failed`);
+
+try {
+  const MFILE = new URL("./site/market.json", import.meta.url);
+  const prevM = fs.existsSync(MFILE) ? JSON.parse(fs.readFileSync(MFILE, "utf8")) : null;
+  const {fetchMarket} = await (import("./market.mjs"));
+  const m = await fetchMarket({
+    prev: prevM,
+    withReserves: false
+  });
+  const pts = rows => Array.isArray(rows) && rows.length > 10 && rows.every(r => Array.isArray(r) && Number.isFinite(r[0]) && Number.isFinite(r[1]) && r[1] > 0);
+  if (!pts(m.series.BNB) || !pts(m.series.BTC) || !pts(m.relative["BNB/BTC"])) throw new Error("BNB, BTC or BNB/BTC missing or malformed");
+  const keep = {
+    generatedAt: m.generatedAt,
+    since: m.since,
+    base: m.base,
+    series: m.series,
+    relative: m.relative,
+    summary: m.summary,
+    perps: m.perps,
+    sources: m.sources,
+    notes: m.notes
+  };
+  fs.writeFileSync(MFILE, JSON.stringify(keep));
+  console.log(`wrote site/market.json: ${(JSON.stringify(keep).length / 1024).toFixed(0)} KB in ${(m.tookMs / 1e3).toFixed(1)} s` + (m.notes.length ? "; notes: " + m.notes.join(" | ") : ""));
+} catch (e) {
+  console.error("market failed, kept the last market.json: " + e.message);
+}

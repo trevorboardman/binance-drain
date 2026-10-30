@@ -1682,6 +1682,172 @@ async function refreshLoop() {
   }
 }
 
+const MKT_PINS = [ {
+  t: Date.parse("2026-10-29T20:24:23Z"),
+  name: "Sweep 20:24"
+}, {
+  t: Date.parse("2026-10-29T21:15:00Z"),
+  name: "Founder: a hack"
+}, {
+  t: Date.parse("2026-10-29T22:55:00Z"),
+  name: "Withdrawals stop"
+}, {
+  t: Date.parse("2026-10-30T00:10:35Z"),
+  name: "Wallet 14 closed"
+} ];
+
+let MK = null;
+
+const pctOf = (v, b) => (v / b - 1) * 100;
+
+const pctTxt = p => (p > 0 ? "+" : p < 0 ? "−" : "") + Math.abs(p).toFixed(1) + "%";
+
+const hm = t => new Date(t).toISOString().slice(11, 16);
+
+const okRows = rows => Array.isArray(rows) && rows.length > 10 && rows.every(r => Array.isArray(r) && Number.isFinite(r[0]) && Number.isFinite(r[1]) && r[1] > 0);
+
+async function loadMarket() {
+  try {
+    const r = await fetch("market.json", {
+      cache: "no-cache"
+    });
+    if (!r.ok) throw new Error("market.json HTTP " + r.status);
+    const d = await r.json();
+    const rel = d.relative && d.relative["BNB/BTC"], usdS = d.series && d.series.BNB, base = Number(d.base);
+    if (!okRows(rel) || !okRows(usdS) || !Number.isFinite(base)) throw new Error("market.json is missing BNB or BNB/BTC");
+    const at = (rows, t) => {
+      let v = null;
+      for (const x of rows) {
+        if (x[0] <= t) v = x[1]; else break;
+      }
+      return v;
+    };
+    const rb = at(rel, base), ub = at(usdS, base);
+    if (!rb || !ub) throw new Error("market.json has no point at 20:00");
+    const A1 = rel.map(([t, v]) => [ t, pctOf(v, rb) ]), B1 = usdS.map(([t, v]) => [ t, pctOf(v, ub) ]);
+    const pre = A1.filter(([t]) => t <= base).map(x => x[1]);
+    const lowA = A1.filter(([t]) => t >= base).reduce((m, x) => x[1] < m[1] ? x : m, [ 0, Infinity ]);
+    const lowB = B1.filter(([t]) => t >= base && t <= base + 2 * 36e5).reduce((m, x) => x[1] < m[1] ? x : m, [ 0, Infinity ]);
+    const btc = d.series.BTC, bb = at(btc, base), btcAt = bb && at(btc, lowB[0]);
+    const back = A1.find(([t, v]) => t > lowA[0] && v >= Math.min(...pre));
+    MK = {
+      A: A1,
+      B: B1,
+      base,
+      preLo: Math.min(...pre),
+      preHi: Math.max(...pre),
+      lowA,
+      lowB,
+      gen: d.generatedAt,
+      src: String(d.sources && d.sources.BNB || "")
+    };
+    const down = v => Math.abs(v).toFixed(1) + "%";
+    $("mktLede").innerHTML = `Binance's own coin, BNB, was down <b>${esc(down(lowB[1]))}</b> in dollars at ${esc(hm(lowB[0]))} UTC` + (btcAt ? `, when Bitcoin was down ${esc(down(pctOf(btcAt, bb)))}` : "") + `. Measured against Bitcoin it was down ${esc(down(lowA[1]))} at worst, at ${esc(hm(lowA[0]))}` + (back ? `, and back in its usual range by ${esc(hm(back[0]))}.` : ".");
+    $("mktNote").textContent = `Prices every 5 minutes from ${{
+      coinbase: "Coinbase",
+      kraken: "Kraken",
+      okx: "OKX",
+      coingecko: "CoinGecko"
+    }[MK.src.split(" ")[0]] || "public exchanges"}, as a change from 20:00 UTC. The split from Bitcoin starts in the minute of the sweep, before the first reports at about 20:32; it shows when the selling happened, not who sold. The whole market fell again from 23:00 to 02:00, led by Bitcoin, and nothing here ties that to the drain.`;
+    $("mktBox").hidden = false;
+    drawMarket();
+  } catch (e) {
+    console.error("[tracker] market.json", e);
+  }
+}
+
+function drawMarket(hx) {
+  if (!MK) return;
+  const c = $("mkt"), dpr = Math.min(3, devicePixelRatio || 1), w = c.clientWidth, h = c.clientHeight;
+  if (!w || !h) return;
+  if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) {
+    c.width = Math.round(w * dpr);
+    c.height = Math.round(h * dpr);
+  }
+  const x = c.getContext("2d");
+  x.setTransform(dpr, 0, 0, dpr, 0, 0);
+  x.clearRect(0, 0, w, h);
+  const L = 44, R = 10, B = 22;
+  const t0 = MK.A[0][0], t1 = MK.A[MK.A.length - 1][0];
+  const pins = MKT_PINS.filter(p => p.t >= t0 && p.t <= t1), px0 = t => L + (t - t0) / (t1 - t0) * (w - L - R);
+  let row = 0, lastX = -1e9, rows = 1;
+  for (const p of pins) {
+    const px = px0(p.t);
+    row = px - lastX < p.name.length * 6.6 + 10 ? row + 1 : 0;
+    lastX = px;
+    p.row = row;
+    rows = Math.max(rows, row + 1);
+  }
+  const T = 14 + rows * 13;
+  const all = [ ...MK.A, ...MK.B ].map(p => p[1]);
+  const lo = Math.floor(Math.min(...all, 0) - .5), hi = Math.ceil(Math.max(...all, 0) + .5);
+  const X = t => L + (t - t0) / (t1 - t0) * (w - L - R), Y = v => T + (hi - v) / (hi - lo) * (h - T - B);
+  x.font = '500 10.5px "JetBrains Mono", ui-monospace, monospace';
+  x.textBaseline = "middle";
+  const step = hi - lo > 12 ? 4 : 2;
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+    x.strokeStyle = v === 0 ? "rgba(141,151,166,.5)" : "rgba(141,151,166,.13)";
+    x.lineWidth = 1;
+    x.beginPath();
+    x.moveTo(L, Math.round(Y(v)) + .5);
+    x.lineTo(w - R, Math.round(Y(v)) + .5);
+    x.stroke();
+    x.fillStyle = "#8d97a6";
+    x.textAlign = "right";
+    x.fillText(v === 0 ? "0%" : pctTxt(v).replace(".0", ""), L - 6, Y(v));
+  }
+  x.fillStyle = "rgba(141,151,166,.13)";
+  x.fillRect(L, Y(MK.preHi), w - L - R, Math.max(1, Y(MK.preLo) - Y(MK.preHi)));
+  x.textAlign = "center";
+  x.textBaseline = "alphabetic";
+  for (let t = Math.ceil(t0 / 72e5) * 72e5; t <= t1; t += (w < 500 ? 4 : 2) * 36e5) {
+    if (X(t) > w - 22) continue;
+    x.fillStyle = "#8d97a6";
+    x.fillText(hm(t), X(t), h - 6);
+  }
+  for (const p of pins) {
+    const px = Math.round(X(p.t)) + .5;
+    x.strokeStyle = "rgba(255,255,255,.18)";
+    x.setLineDash([ 2, 3 ]);
+    x.beginPath();
+    x.moveTo(px, T - 4);
+    x.lineTo(px, h - B);
+    x.stroke();
+    x.setLineDash([]);
+    x.fillStyle = "#c2c9d4";
+    x.textAlign = "left";
+    x.fillText(p.name, px + 4, 10 + p.row * 13);
+  }
+  const line = (pts, col, lw) => {
+    x.strokeStyle = col;
+    x.lineWidth = lw;
+    x.lineJoin = "round";
+    x.beginPath();
+    pts.forEach(([t, v], i) => i ? x.lineTo(X(t), Y(v)) : x.moveTo(X(t), Y(v)));
+    x.stroke();
+  };
+  line(MK.B, "#8d97a6", 1.4);
+  line(MK.A, "#f3b23a", 2.2);
+  const ti = hx == null ? MK.lowA[0] : t0 + (hx - L) / (w - L - R) * (t1 - t0);
+  const near = rows => rows.reduce((m, p) => Math.abs(p[0] - ti) < Math.abs(m[0] - ti) ? p : m, rows[0]);
+  const a = near(MK.A), b = near(MK.B);
+  x.fillStyle = "#f3b23a";
+  x.beginPath();
+  x.arc(X(a[0]), Y(a[1]), 3.5, 0, 7);
+  x.fill();
+  $("mktRead").innerHTML = `${esc(hm(a[0]))} UTC · against Bitcoin <b>${esc(pctTxt(a[1]))}</b> · in dollars ${esc(pctTxt(b[1]))}`;
+}
+
+$("mkt").addEventListener("pointermove", e => drawMarket(e.clientX - $("mkt").getBoundingClientRect().left));
+
+$("mkt").addEventListener("pointerleave", () => drawMarket());
+
+addEventListener("resize", () => drawMarket());
+
+loadMarket();
+
+setInterval(loadMarket, 10 * 6e4);
+
 function rebuild() {
   sortEvents();
   TS = tankSteps(S, START);

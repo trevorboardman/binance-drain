@@ -4,5 +4,6 @@
 !/site/
 !/snapshot.mjs
 !/chains/
+!/market.mjs
 !/package.json
 !/README.md
