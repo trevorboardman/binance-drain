@@ -741,6 +741,11 @@ function fitTanks(w, h, sb, slot) {
       y1: bottom
     };
   } else $("scene").classList.remove("note-left");
+  const prE = Math.max(2.8, Math.min(5.4, (rect.x1 - rect.x0) / 120)), short = 4 * (63 + 7.9 * prE) - (rect.y1 - rect.y0);
+  if (view !== "totals" || OG) $("scene").style.minHeight = ""; else if (short > 1) {
+    $("scene").style.minHeight = Math.ceil(h + short) + "px";
+    return;
+  }
   TK.resize({
     w,
     h,
