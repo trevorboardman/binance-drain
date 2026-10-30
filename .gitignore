@@ -1,0 +1,7 @@
+/*
+!/.gitignore
+!/.github/
+!/site/
+!/snapshot.mjs
+!/package.json
+!/README.md
