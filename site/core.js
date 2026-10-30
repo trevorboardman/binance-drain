@@ -89,13 +89,13 @@ export const SEEDS = [ {
 }, {
   addr: "0xccbef95633adb5cd2b5038db5a38d77e726ca263",
   label: "Wallet 0xccbe…a263",
-  plain: "Next wallet",
+  plain: "Attacker wallet",
   role: "hop",
   depth: 1
 }, {
   addr: "0x5c23023ca6633f91ded909b4a753a3ca00fea4fc",
   label: "Wallet 0x5c23…a4fc",
-  plain: "Next wallet",
+  plain: "Attacker wallet",
   role: "hop",
   depth: 1
 } ];
@@ -121,14 +121,14 @@ export const KNOWN = {
     role: "hop",
     depth: 2,
     label: "Wallet 0x008f…7dcd",
-    plain: "Further wallet",
+    plain: "Attacker wallet",
     note: "Took 88.5M RLUSD from 0x5c23 at 21:25 and passed it on to 0xe702 eight minutes later."
   },
   "0xb171ca86f82070282138352ff7111b494060c8c3": {
     role: "hop",
     depth: 2,
     label: "Wallet 0xb171…c8c3",
-    plain: "Further wallet",
+    plain: "Attacker wallet",
     note: "Took 30M USDT and 57,892 ETH from 0xccbe at 21:16. Tether froze it at 21:18:59; the Ether went on to Exploiter 11."
   },
   "0x897c80d1a9729e94460e2bd93178bd5215158df3": {
@@ -297,7 +297,7 @@ function classify(S, party, fromNode, usd) {
     role: "hop",
     depth,
     label: "Wallet " + short(a),
-    plain: depth === 1 ? "Next wallet" : "Further wallet"
+    plain: "Attacker wallet"
   });
   if (known) return known;
   if (a === ZERO) return addNode(S, {
@@ -313,7 +313,7 @@ function classify(S, party, fromNode, usd) {
   return addNode(S, {
     addr: a,
     label: (safe ? "Safe " : "Wallet ") + short(a),
-    plain: depth === 1 ? "Next wallet" : "Further wallet",
+    plain: "Attacker wallet",
     role: "hop",
     depth,
     firstSeen: Date.now()

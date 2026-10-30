@@ -129,20 +129,26 @@ h1 .amt { color: var(--vault); font-stretch: 100%; font-variant-numeric: tabular
   .top { gap: 12px; }
   .mark { font-size: 11.5px; white-space: nowrap; }
   .state { display: none; }  .mode { gap: 10px; }
-  .head { top: 54px; right: 0; }
+  .head { top: 50px; right: 0; }
+  .kicker { margin-bottom: 10px; font-size: 11px; }
   h1 { font-size: clamp(32px, 9.4vw, 46px); }
-  .dek { font-size: 15px; max-width: none; }
-  .clock { top: auto; bottom: 236px; right: auto; left: 0; text-align: left; }
-  .clock .t { font-size: 26px; }
-  .note { top: auto; bottom: 290px; right: 0; left: 0; width: auto; }
+  .dek { font-size: 15px; max-width: none; transition: opacity .4s; }
+  .scene.noting .dek { opacity: 0; }
+  .note { top: var(--slot, 200px); bottom: auto; right: 0; left: 0; width: auto; }
+  .note[hidden] { transform: translateY(4px); }
   .note h3, .note p, .note .tx { text-align: left; }
   .note .n { justify-content: flex-start; }
-  .note h3 { font-size: 19px; }
-  .note p { font-size: 13.5px; }
-  .figs { bottom: 104px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px 0; }
-  .fig { padding-right: 12px; margin-right: 0; border-right: 0; }
+  .note h3 { font-size: 17px; margin: 6px 0 4px; }
+  .note p { font-size: 13.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .note .tx { display: none; }
+  .clock { top: auto; bottom: 172px; right: auto; left: 0; text-align: left; display: flex; align-items: baseline; gap: 10px; }
+  .clock .t { font-size: 22px; }
+  .figs { bottom: 114px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 10px; align-items: end; }
+  .fig { padding: 0; margin: 0; border: 0; }
+  .fig .k { font-size: 9px; letter-spacing: .05em; gap: 5px; align-items: flex-start; line-height: 1.25; }
+  .fig .k i { width: 6px; height: 6px; flex: none; margin-top: .25em; }
   .fig .d { display: none; }
-  .fig .v { font-size: 26px; }
+  .fig .v { font-size: clamp(16px, 5vw, 22px); margin-top: 4px; text-shadow: 0 0 14px currentColor; }
   .when, .hint { display: none; }
   .deck { grid-template-columns: auto minmax(0, 1fr); }
   .deck .ctl { grid-column: 1 / -1; justify-content: space-between; }
@@ -228,17 +234,17 @@ body.og .head { top: 34px; }
     <div class="head pad" id="head">
       <p class="kicker">Ethereum · Thursday 29 October 2026</p>
       <h1><span class="amt" id="hOut">$3.3 billion</span> left Binance in one night</h1>
-      <p class="dek plain-only">Every dot <span class="dot-key"></span> is <b id="unitTxt">$25,000</b> of it. Watch it leave Binance's wallets, split up, and freeze.</p>
+      <p class="dek plain-only">Every dot <span class="dot-key"></span> is <b id="unitTxt">$25,000</b> of it.</p>
       <p class="dek tech-only">1 dot = <span id="unitTxt2">$25K</span> at current prices. EIP-7702 delegation on Binance 14, one-call sweep, onward flows of $1M+ followed four hops.</p>
     </div>
     <div class="clock pad" id="clockBox"><div class="t" id="clock">20:18:00</div><div class="s" id="clockS">replay · UTC</div></div>
     <div class="note pad" id="note" hidden></div>
     <div class="when pad" id="when">Figures <b id="whenTxt">now</b></div>
     <div class="figs pad" id="figs">
-      <div class="fig"><div class="k"><i style="background:var(--vault)"></i>Taken</div><div class="v" style="color:var(--vault)" id="fOut">–</div><div class="d">Moved out of Binance wallets, at today's prices.</div></div>
-      <div class="fig"><div class="k"><i style="background:var(--ice)"></i>Frozen</div><div class="v" style="color:var(--ice)" id="fFz">–</div><div class="d">Dollar tokens Tether, Circle and Ripple have locked.</div></div>
-      <div class="fig"><div class="k"><i style="background:var(--red)"></i>Still movable</div><div class="v" style="color:var(--red)" id="fFree">–</div><div class="d">Held by the attacker's side. Mostly Ether, which no one can freeze.</div></div>
-      <div class="fig"><div class="k"><i style="background:var(--svc)"></i>Sent to programs</div><div class="v" style="color:#c2c8d2" id="fSvc">–</div><div class="d">Into exchanges, lenders and unnamed contracts. Some comes back as other coins.</div></div>
+      <div class="fig"><div class="k"><i style="background:var(--vault)"></i>Taken</div><div class="v" style="color:var(--vault)" id="fOut">–</div><div class="d">Out of Binance, at today's prices.</div></div>
+      <div class="fig"><div class="k"><i style="background:var(--ice)"></i>Frozen</div><div class="v" style="color:var(--ice)" id="fFz">–</div><div class="d">Locked by Tether, Circle and Ripple.</div></div>
+      <div class="fig"><div class="k"><i style="background:var(--red)"></i>Still movable</div><div class="v" style="color:var(--red)" id="fFree">–</div><div class="d">Mostly Ether, which nobody can freeze.</div></div>
+      <div class="fig"><div class="k"><i style="background:var(--svc)"></i>Sent to programs</div><div class="v" style="color:#c2c8d2" id="fSvc">–</div><div class="d">Into exchanges, lenders and bots.</div></div>
     </div>
     <div class="hint pad" id="hint">Drag to turn · hover a name</div>
     <div class="deck pad">
@@ -263,36 +269,35 @@ body.og .head { top: 34px; }
     <h2>How it happened</h2>
     <div class="steps">
       <div class="step"><time>13:51 UTC</time><h3>A rehearsal</h3>
-        <p>That afternoon the attacker runs the same takeover on three throwaway wallets of their own, sweeping a few dollars each time.</p>
+        <p>The attacker tests the same trick on three wallets of their own.</p>
         <p class="tx tech-only">7702 delegations of 0x8378…bc3 and 0x9c29…b6b to a first delegate 0x19be…f2bf at 13:51; 0x43ae…04bd to the final delegate at 16:20. Sweeps to 0x24a4…a4de. The attacker EOA was funded by three 0.1 ETH Tornado Cash withdrawals and 1.08 ETH from a second Tornado-funded wallet.</p></div>
-      <div class="step"><time>20:20:59 UTC</time><h3>The wallet changes hands</h3>
-        <p>A transaction carrying Binance wallet 14's own signature lets the attacker's program run the wallet. Whoever made it could sign with that wallet's key, or get Binance's systems to sign. Binance's own transactions kept going out of the same wallet all evening.</p>
+      <div class="step"><time>20:20:59 UTC</time><h3>Wallet 14 changes hands</h3>
+        <p>A transaction signed with the wallet's own key hands it to the attacker's program.</p>
         <p class="tx tech-only">Type-4 tx <a href="https://etherscan.io/tx/0xad99264d5532ae0dd04b2004eebda05f25657e70dacb764f7ac8d4ccd051298b" target="_blank" rel="noopener">0xad99…298b</a> sets 0x28c6…1d60's EIP-7702 delegation to 0x63e8…6fae. All 50 authorizations recover to B14 and cover nonces 18,914,775–18,914,824; B14 had used 18,914,775 at 20:17:47, and 18,914,809 applied.</p></div>
-      <div class="step"><time>20:24:23 UTC</time><h3>One transfer takes $2.8 billion</h3>
-        <p>167,464 Ether and 63 other tokens leave in a single transaction. The network fee was under a dollar.</p>
+      <div class="step"><time>20:24:23 UTC</time><h3>$2.8 billion in one transfer</h3>
+        <p>167,464 Ether and 63 other tokens leave at once. The fee: under $1.</p>
         <p class="tx tech-only"><a href="https://etherscan.io/tx/0x53bd38b816c23e74134786c29a8c18d792777998a3b9326047b583100e88e2f3" target="_blank" rel="noopener">0x53bd…e2f3</a>: 0x7c86…5ca0 calls 0x8a179be4 on B14, now running the delegate's code, which sweeps to Exploiter 2. The delegate accepts calls only from 0x7c86, funded through Tornado Cash on 28 Oct.</p></div>
-      <div class="step"><time>20:26–21:00</time><h3>The money is split up</h3>
-        <p>A second Binance wallet sends 28,005 Ether, and 823 million USDC is pulled from a third that wallet 14 controls. 195,460 Ether, about $440 million, goes to a fresh wallet and stays put. The rest is spread over dozens of new wallets, swapped on exchanges, and used as collateral for an Aave loan. No bridge to another chain and no exchange deposit has shown up.</p>
+      <div class="step"><time>20:26–21:00</time><h3>The money splits up</h3>
+        <p>Two more Binance wallets are emptied. The haul spreads over dozens of new wallets, gets swapped, and gets borrowed against.</p>
         <p class="tx tech-only">B16 → E2 (<a href="https://etherscan.io/tx/0x51f263fa50966df6bbd7f8c6e6e99e3791c94444f7c4343b2fef1ee2d62fd39f" target="_blank" rel="noopener">0x51f2…</a>); E2 → E8 (<a href="https://etherscan.io/tx/0x551d7961652e6d9835b11988908adf86ebe480badb4ce2d7d52193b2b1b02c76" target="_blank" rel="noopener">0x551d…</a>); Hot Wallet 34, a Circle MSCA owned by B14, → E2, 780M + 43M USDC (<a href="https://etherscan.io/tx/0xdc102dd89dded5a83f1008906883ffb7c81ff3b7d7965d8c7277d170b5e17481" target="_blank" rel="noopener">0xdc10…</a>). Several hop wallets are themselves 7702-delegated.</p></div>
-      <div class="step"><time>From 21:01</time><h3>The issuers step in</h3>
-        <p>Tether, Circle and Ripple can block their dollar tokens at any address, and they blocked the attacker's main wallets within the hour, then Binance's drained wallet itself. Synthetix and The Sandbox pulled their own tokens back. Ether has no company behind it, so the Ether is still the attacker's to move.</p>
+      <div class="step"><time>From 21:01</time><h3>The freezes</h3>
+        <p>Tether, Circle and Ripple lock their dollar tokens within the hour. Ether has no issuer, so it stays movable.</p>
         <p class="tx tech-only">Tether <code>AddedBlackList</code>, Circle <code>Blacklisted</code> and Ripple <code>AccountPaused</code> events are read from the token contracts; each wallet's state is checked with <code>isBlackListed</code> / <code>isBlacklisted</code> / <code>accountPaused</code>. Binance revoked the delegation at 00:10:35 on 30 Oct (<a href="https://etherscan.io/tx/0xafbf94c92a8d749988411669fa14d4f8866d9b4420b4ebd299f28e958dac7209" target="_blank" rel="noopener">0xafbf…</a>).</p></div>
     </div>
     <dl class="words plain-only">
-      <div><dt>Hot wallet</dt><dd>An exchange's online wallet, topped up so it can pay withdrawals quickly. Most customer money is kept offline.</dd></div>
-      <div><dt>Dollar tokens</dt><dd>Digital tokens worth $1 each, issued by a company: USDT by Tether, USDC by Circle, RLUSD by Ripple. The issuer can freeze them.</dd></div>
-      <div><dt>Ether</dt><dd>Ethereum's own currency. No company issues it, so no one can freeze it.</dd></div>
-      <div><dt>Why it can be followed</dt><dd>Every Ethereum transfer is public. Wallets carry no names, but the path of the money is visible to anyone.</dd></div>
+      <div><dt>Hot wallet</dt><dd>An exchange's online wallet for paying out withdrawals.</dd></div>
+      <div><dt>Dollar tokens</dt><dd>USDT, USDC, RLUSD: worth $1, and freezable by the company behind each.</dd></div>
+      <div><dt>Ether</dt><dd>Ethereum's own coin. Nobody can freeze it.</dd></div>
     </dl>
   </section>
 
   <section class="block">
-    <h2>Being watched right now</h2>
+    <h2>Right now</h2>
     <div class="watch" id="watch">
-      <div><div class="k">Binance wallet 14</div><div class="v" id="wDel">checking</div><div class="d" id="wDelD">Whether the drained wallet still runs the attacker's program.</div></div>
-      <div><div class="k">Attacker's last move</div><div class="v" id="wLast">–</div><div class="d" id="wLastD">Latest transfer of $10K or more from the attacker's side.</div></div>
-      <div><div class="k">Wallets blacklisted</div><div class="v ice" id="wBl">–</div><div class="d" id="wBlD">Addresses on this map that Tether or Circle have blocked.</div></div>
-      <div><div class="k">Loan on Aave</div><div class="v" id="wAave">checking</div><div class="d" id="wAaveD">Borrowing by the attacker's side against stolen dollars.</div></div>
+      <div><div class="k">Binance wallet 14</div><div class="v" id="wDel">checking</div><div class="d" id="wDelD">Does the attacker still control it?</div></div>
+      <div><div class="k">Attacker's last move</div><div class="v" id="wLast">–</div><div class="d" id="wLastD">Latest transfer of $10K or more.</div></div>
+      <div><div class="k">Wallets blacklisted</div><div class="v ice" id="wBl">–</div><div class="d" id="wBlD">Blocked by Tether or Circle.</div></div>
+      <div><div class="k">Loan on Aave</div><div class="v" id="wAave">checking</div><div class="d" id="wAaveD">Borrowed against stolen dollars.</div></div>
     </div>
   </section>
 
@@ -321,12 +326,12 @@ body.og .head { top: 34px; }
       <button id="copyLink" type="button">Copy link</button>
       <a class="quiet" href="https://buymeacoffee.com/trevor_b" target="_blank" rel="noopener">Buy me a coffee</a>
     </div>
-    <p>Independent tracker, not affiliated with Binance, Tether or Circle. Binance says it is investigating and that user funds are safe; it has not published a full account. Labels such as "Exploiter 2" are Etherscan's. Not financial advice.</p>
-    <p>Times not read from the chain come from reporting by <a href="https://cryptoticker.io/en/binance-hack-hot-wallet-drained/" target="_blank" rel="noopener">CryptoTicker</a>, <a href="https://financefeeds.com/binance-hack-statement-edited-user-funds-safe/" target="_blank" rel="noopener">FinanceFeeds</a>, <a href="https://www.coindesk.com/business/2026/10/29/live-updates-bitcoin-clings-to-usd80-000-as-strategy-s-cushion-thins-before-earnings" target="_blank" rel="noopener">CoinDesk</a>, <a href="https://decrypt.co/382194/binance-hack-exit-ramps-defi-exchange-ethereum" target="_blank" rel="noopener">Decrypt</a>, <a href="https://finance.yahoo.com/markets/crypto/articles/binance-hacker-hunts-exit-ramps-225748214.html" target="_blank" rel="noopener">Yahoo Finance</a>, <a href="https://www.theblock.co/news/markets/2026-10-29-binance-investigating-hack-suspicious-outflows-5-billion-432171" target="_blank" rel="noopener">The Block</a> and <a href="https://techcrunch.com/2026/10/29/binance-pauses-withdrawals-as-hackers-suspected-of-stealing-billions-in-crypto/" target="_blank" rel="noopener">TechCrunch</a>, and are marked "reported".</p>
+    <p>Independent. Not affiliated with Binance, Tether, Circle or Ripple. Not financial advice.</p>
+    <p>Reported times: <a href="https://cryptoticker.io/en/binance-hack-hot-wallet-drained/" target="_blank" rel="noopener">CryptoTicker</a>, <a href="https://financefeeds.com/binance-hack-statement-edited-user-funds-safe/" target="_blank" rel="noopener">FinanceFeeds</a>, <a href="https://www.coindesk.com/business/2026/10/29/live-updates-bitcoin-clings-to-usd80-000-as-strategy-s-cushion-thins-before-earnings" target="_blank" rel="noopener">CoinDesk</a>, <a href="https://decrypt.co/382194/binance-hack-exit-ramps-defi-exchange-ethereum" target="_blank" rel="noopener">Decrypt</a>, <a href="https://finance.yahoo.com/markets/crypto/articles/binance-hacker-hunts-exit-ramps-225748214.html" target="_blank" rel="noopener">Yahoo Finance</a>, <a href="https://www.theblock.co/news/markets/2026-10-29-binance-investigating-hack-suspicious-outflows-5-billion-432171" target="_blank" rel="noopener">The Block</a>, <a href="https://techcrunch.com/2026/10/29/binance-pauses-withdrawals-as-hackers-suspected-of-stealing-billions-in-crypto/" target="_blank" rel="noopener">TechCrunch</a>.</p>
     <p id="snapInfo"></p>
   </footer>
 </main>
 
-<script type="module" src="app.js?v=3"></script>
+<script type="module" src="app.js?v=4"></script>
 </body>
 </html>

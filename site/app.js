@@ -10,7 +10,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 
-import { makeState, addNode, loadData, node, isSide, isAddr, isHash, totalsAt, assetClass, short, sleep, ATTACKER, B14, DELEGATE, SEEDS } from "./core.js?v=8";
+import { makeState, addNode, loadData, node, isSide, isAddr, isHash, totalsAt, assetClass, short, sleep, ATTACKER, B14, DELEGATE, SEEDS } from "./core.js?v=9";
 
 const Q = new URLSearchParams(location.search);
 
@@ -75,7 +75,9 @@ let tech = false;
 
 const narrow = () => innerWidth < 760;
 
-const nameOf = n => !n ? "" : tech ? n.label : narrow() && n.mini || n.plain;
+const plainOf = n => n.role === "hop" ? "Attacker wallet" : n.plain;
+
+const nameOf = n => !n ? "" : tech ? n.label : narrow() && n.mini || plainOf(n);
 
 const nameAt = a => {
   const n = node(S, a);
@@ -135,14 +137,14 @@ function buildGraph() {
     const order = [];
     ns.forEach((n, i) => i % 2 ? order.push(n) : order.unshift(n));
     order.forEach((n, i) => {
-      const spread = vert ? 20 : 34;
+      const spread = vert ? 22 : 34;
       let across = order.length > 1 ? (i / (order.length - 1) - .5) * 2 * Math.min(spread, 8 + order.length * 4.2) : 0;
       if (l === 1.55) across = -22;
       if (l === 1.45) across = 22;
       if (l === 1.6) across = 24 + i * 8;
       const along = (l - 2) * (vert ? 24 : 34);
       const z = (hash01(n.addr) - .5) * 26;
-      pos[index.get(n.addr)] = vert ? new THREE.Vector3(across * .7, -along * 1.1, z) : new THREE.Vector3(along, -across * .95, z);
+      pos[index.get(n.addr)] = vert ? new THREE.Vector3(across * 2.1, -along * 1.05, z) : new THREE.Vector3(along, -across * .95, z);
     });
   }
   list.forEach((n, i) => {
@@ -455,6 +457,8 @@ const cam = {
   shake: 0
 };
 
+const NOTE_ROOM = 104;
+
 function fitCamera() {
   const w = canvas.clientWidth, h = canvas.clientHeight;
   renderer.setPixelRatio(Math.min(OG ? 1 : 1.75, devicePixelRatio || 1));
@@ -473,8 +477,11 @@ function fitCamera() {
   });
   const size = box.getSize(new THREE.Vector3), mid = box.getCenter(new THREE.Vector3);
   const sb = $("scene").getBoundingClientRect();
-  const top = OG ? h * .42 : $("head").getBoundingClientRect().bottom - sb.top - (narrow() ? 0 : 40);
-  const bot = (narrow() && !OG ? $("clockBox") : OG ? $("figs") : $("when")).getBoundingClientRect().top - sb.top + (narrow() && !OG ? -150 : 6);
+  const h1 = $("head").querySelector("h1").getBoundingClientRect().bottom - sb.top;
+  const slot = h1 + 14;
+  $("scene").style.setProperty("--slot", slot + "px");
+  const top = OG ? h * .42 : narrow() ? slot + NOTE_ROOM : $("head").getBoundingClientRect().bottom - sb.top - 40;
+  const bot = (narrow() && !OG ? $("clockBox") : OG ? $("figs") : $("when")).getBoundingClientRect().top - sb.top + (narrow() && !OG ? -44 : 6);
   const band = Math.max(h * .3, bot - top), centre = (top + bot) / 2;
   camera.setViewOffset(w, h, 0, h / 2 - centre, w, h);
   const fov = camera.fov * Math.PI / 180;
@@ -633,25 +640,25 @@ const MILESTONES = [ {
   t: "20:20:59",
   kind: "attack",
   title: "Binance wallet 14 changes hands",
-  plain: "A transaction carrying the wallet's own signature hands control to the attacker's program. Nothing has moved yet.",
+  plain: "Signed with the wallet's own key. Nothing has moved yet.",
   tx: "EIP-7702 delegation to 0x63e8…6fae, 50 authorizations signed by B14 for nonces 18,914,775–824 · tx 0xad99…298b"
 }, {
   t: "20:24:23",
   kind: "attack",
   title: "$2.8 billion leaves in one transfer",
-  plain: "167,464 Ether and dozens of other tokens go to the attacker at once. The fee was under a dollar.",
+  plain: "167,464 Ether and dozens of tokens in one go. Fee: under $1.",
   tx: "sweep 0x8a179be4 → Exploiter 2 · tx 0x53bd…e2f3"
 }, {
   t: "20:26:00",
   kind: "attack",
   title: "A second Binance wallet pays out",
-  plain: "28,005 Ether from Binance wallet 16 follows to the same place.",
+  plain: "28,005 Ether from Binance wallet 16 follows.",
   tx: "B16 → E2 · tx 0x51f2…d39f"
 }, {
   t: "20:32:00",
   kind: "report",
   title: "Investigators spot it",
-  plain: "On-chain analysts flag the transfer on X, eight minutes in.",
+  plain: "Analysts flag it on X, eight minutes in.",
   tx: "reported time (CryptoTicker)",
   reported: true
 }, {
@@ -663,77 +670,77 @@ const MILESTONES = [ {
 }, {
   t: "20:41:23",
   kind: "attack",
-  title: "780 million dollar tokens pulled out",
-  plain: "Binance wallet 34 is owned by wallet 14, so the attacker can empty it too.",
+  title: "780 million USDC pulled out",
+  plain: "Wallet 14 owns Binance wallet 34, so that gets emptied too.",
   tx: "Hot Wallet 34 (Circle MSCA, owner B14) → E2, 780M USDC · tx 0xdc10…7481"
 }, {
   t: "21:00:59",
   kind: "attack",
   title: "Borrowing against stolen dollars",
-  plain: "One wallet puts 60 million USDT into the lender Aave, borrows 19,762 Ether against it and sends the Ether on.",
+  plain: "60 million USDT goes into Aave as collateral for 19,762 Ether.",
   tx: "0x8d53…639a · Aave V3 supply 10M + 50M USDT, borrow 3,271 + 16,491 WETH"
 }, {
   t: "21:15:00",
   kind: "report",
   title: "Binance's founder: it looks like a hack",
-  plain: "Changpeng Zhao says on X it does look like a hack on Binance.",
+  plain: "Changpeng Zhao says so on X.",
   tx: "reported time (FinanceFeeds)",
   reported: true
 }, {
   t: "21:16:00",
   kind: "report",
-  title: "Binance: no confirmed impact",
-  plain: "Binance posts that it has not confirmed any impact on user funds. By 21:29 the post says user funds are completely safe.",
+  title: "Binance: user funds are safe",
+  plain: "Its first post says no impact is confirmed.",
   tx: "reported times (FinanceFeeds)",
   reported: true
 }, {
   t: "21:44:11",
   kind: "attack",
-  title: "200 million more lands in a frozen wallet",
-  plain: "Another USDT sweep reaches Wallet A 43 minutes after Tether froze it. It arrives and can't move.",
+  title: "$200 million lands in a frozen wallet",
+  plain: "Another USDT sweep reaches Wallet A, frozen 43 minutes earlier. It can't move.",
   tx: "B14 → E2, 200,397,772 USDT · tx 0x55ba…0556"
 }, {
   t: "21:47:23",
   kind: "attack",
   title: "Aave freezes its markets",
-  plain: "The lender stops new deposits and loans in 32 assets, including USDT, USDC and Ether.",
+  plain: "No new deposits or loans in 32 assets.",
   tx: "32 ReserveFrozen events, 21:47:23–21:49:59 · PoolConfigurator"
 }, {
   t: "22:39:35",
   kind: "attack",
-  title: "A fresh wallet takes the next sweep",
-  plain: "With Wallet A frozen, Binance wallet 14 is emptied again, this time into a new wallet.",
+  title: "The next sweep goes to a new wallet",
+  plain: "Wallet A is frozen, so wallet 14 is emptied somewhere else.",
   tx: "B14 → 0xa97b…8d10, 128 ETH and dozens of tokens · tx 0x4a4a…6d6b"
 }, {
   t: "22:55:00",
   kind: "report",
   title: "Binance stops withdrawals",
-  plain: "Binance says withdrawals are frozen while its team runs security checks.",
+  plain: "For security checks, it says.",
   tx: "reported time (CoinDesk)",
   reported: true
 }, {
   t: "23:03:47",
   kind: "attack",
   title: "Synthetix takes its tokens back",
-  plain: "8.4 million SNX is pulled out of the attacker's wallet into a Synthetix Safe.",
+  plain: "8.4 million SNX goes back to a Synthetix wallet.",
   tx: "E2 → 0xeb31…7769 (Synthetix protocolDAO Safe) · tx 0x0d4a…776f"
 }, {
   t: "23:27:11",
   kind: "attack",
   title: "The Sandbox does the same",
-  plain: "58.4 million SAND goes back the same way.",
+  plain: "58.4 million SAND goes back.",
   tx: "E2 → 0x84a9…d87d · tx 0x0a68…06a8"
 }, {
   t: "23:56:47",
   kind: "attack",
   title: "One last sweep",
-  plain: "The attacker's program still runs wallet 14. It sends the remaining 2,961 Ether to the new wallet.",
+  plain: "The last 2,961 Ether leaves wallet 14.",
   tx: "B14 → 0xa97b…8d10 · tx 0x4395…f89b"
 }, {
   at: "2026-10-30T00:10:35Z",
   kind: "attack",
   title: "Binance takes wallet 14 back",
-  plain: "Binance signs a transaction that removes the attacker's program, 3 hours 50 minutes after it was attached.",
+  plain: "It removes the attacker's program, 3 h 50 min after it went on.",
   tx: "type-4 tx from B14 delegating to 0x0 · tx 0xafbf…7209"
 } ];
 
@@ -778,7 +785,7 @@ function buildMilestones() {
       count: 1,
       addrs: [ short(z.addr) ],
       title: victim ? `${z.issuer} blocks ${n.plain} itself` : `${z.issuer} freezes ${freezeWho(n)}`,
-      plain: victim ? "The drained wallet is blacklisted so nothing more can be pulled through it." : `${token} sitting there can no longer move. Those dots turn blue.`,
+      plain: victim ? "Nothing more can be pulled through it." : `Its ${token} can't move now. Those dots turn blue.`,
       tx: `${ev}(${short(z.addr)}) · tx ${short(z.hash)}`
     });
   }
@@ -796,6 +803,7 @@ function showNote(m) {
   if (!m) {
     el.hidden = true;
     noteShown = null;
+    $("scene").classList.remove("noting");
     return;
   }
   if (m === noteShown) return;
@@ -803,6 +811,7 @@ function showNote(m) {
   el.innerHTML = `<div class="n"><span>${m.no} / ${MS.length}</span><b>${hms(m.at)} UTC · ${m.reported ? "reported" : "on-chain"}</b></div><h3>${esc(m.title)}</h3><p>${esc(m.plain)}</p>${tech ? `<div class="tx">${esc(m.tx)}</div>` : ""}`;
   el.hidden = false;
   noteShown = m;
+  $("scene").classList.add("noting");
 }
 
 const captionFor = t => {
@@ -1131,11 +1140,11 @@ function renderWatch() {
     const to = "0x" + c.slice(8, 48), bad = to === DELEGATE;
     $("wDel").textContent = bad ? "Still hijacked" : "Delegated elsewhere";
     $("wDel").className = "v " + (bad ? "bad" : "");
-    $("wDelD").textContent = bad ? `It still runs the attacker's program (0x63e8…6fae). Read from the chain ${hms(b.at)} UTC.` : `Now delegated to ${short(to)}. Read from the chain ${hms(b.at)} UTC.`;
+    $("wDelD").textContent = bad ? `Still runs the attacker's program. Checked ${hms(b.at)} UTC.` : `Now delegated to ${short(to)}. Checked ${hms(b.at)} UTC.`;
   } else if (c === "0x") {
     $("wDel").textContent = "Released";
     $("wDel").className = "v good";
-    $("wDelD").textContent = "Binance removed the attacker's program at 00:10:35 UTC on 30 Oct (tx 0xafbf…7209). Still clear when read from the chain at " + hms(b.at) + " UTC.";
+    $("wDelD").textContent = "Binance took it back at 00:10 UTC. Checked " + hms(b.at) + " UTC.";
   } else {
     $("wDel").textContent = "Has code";
     $("wDel").className = "v";
@@ -1155,17 +1164,17 @@ function renderWatch() {
     const names = av.list.map(p => short(p.addr)).join(", ");
     $("wAave").textContent = debt > 0 ? usd(debt) + " borrowed" : coll > 0 ? usd(coll) + " deposited" : "None found";
     $("wAave").className = "v" + (debt > 0 && hf < 1.1 ? " bad" : "");
-    $("wAaveD").textContent = debt > 0 ? `Ether borrowed by ${names} against ${usd(coll)} of USDT. Health factor ${hf.toFixed(3)}: if Ether rises about ${Math.max(0, (hf - 1) * 100).toFixed(1)}%, Aave can sell the collateral. Read from the chain ${hms(av.at)} UTC.` : coll > 0 ? `Deposited by ${names}, nothing borrowed. Aave V3, read from the chain ${hms(av.at)} UTC.` : "No open Aave V3 position on any wallet on this map.";
+    $("wAaveD").textContent = debt > 0 ? `Against ${usd(coll)} of USDT. If Ether rises ${Math.max(0, (hf - 1) * 100).toFixed(1)}%, Aave can sell it. Checked ${hms(av.at)} UTC.` + (tech ? ` ${names}, health factor ${hf.toFixed(3)}.` : "") : coll > 0 ? `Deposited, nothing borrowed. Checked ${hms(av.at)} UTC.` : "No Aave loans on the map.";
   }
   let last = null;
   for (const e of S.events.values()) if (isSide(node(S, e.from)) && e.usd && (!last || e.t > last.t)) last = e;
   if (last) {
     $("wLast").textContent = ago(last.t) + " ago";
-    $("wLastD").textContent = `${usd(last.usd)} ${last.sym} from ${nameAt(last.from)} to ${nameAt(last.to)}.`;
+    $("wLastD").textContent = `${usd(last.usd)} ${last.sym}, ${nameAt(last.from)} to ${nameAt(last.to)}.`;
   }
   const bl = [ ...S.nodes.values() ].filter(n => n.usdtBl || n.usdcBl).length;
   $("wBl").textContent = bl;
-  $("wBlD").textContent = `Addresses on this map that Tether or Circle have blocked, out of ${[ ...S.nodes.values() ].filter(n => n.addr.startsWith("0x") && n.role !== "venue").length}.`;
+  $("wBlD").textContent = `Out of ${[ ...S.nodes.values() ].filter(n => n.addr.startsWith("0x") && n.role !== "venue").length} on the map.`;
 }
 
 const REFRESH = 6e4, OLD = 45 * 6e4;
@@ -1202,7 +1211,7 @@ function seedText() {
 }
 
 function snapLine() {
-  $("snapInfo").textContent = S.generatedAt ? `Data from ${S.generatedAt.replace("T", " ").slice(0, 16)} UTC (block ${S.block.toLocaleString("en-US")}). A scheduled job rebuilds it from the chain about every 10 minutes, and this page checks for a newer one every minute.` : "The data did not load. The page tries again every minute.";
+  $("snapInfo").textContent = S.generatedAt ? `Updated ${S.generatedAt.slice(11, 16)} UTC, every 10 minutes.` : "The data did not load. Trying again every minute.";
 }
 
 function stateLine() {
