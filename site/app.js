@@ -20,6 +20,10 @@ const Q = new URLSearchParams(location.search);
 
 const OG = Q.has("og");
 
+const DIRECT = Q.has("direct");
+
+const draw = () => DIRECT ? renderer.render(renderPass.scene, renderPass.camera) : composer.render();
+
 if (OG) document.body.classList.add("og");
 
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1623,7 +1627,7 @@ function frame(now) {
     if (fr) bandLabels(fr.bands);
     renderPass.scene = TK.scene;
     renderPass.camera = TK.cam;
-    composer.render();
+    draw();
   } else if (glOK && built && G) {
     renderPass.scene = scene;
     renderPass.camera = camera;
@@ -1661,7 +1665,7 @@ function frame(now) {
     }
     if (dust) dust.rotation.y = now / 4e5;
     placeCamera(now);
-    composer.render();
+    draw();
     placeLabels(now);
   }
   drawScrub();
