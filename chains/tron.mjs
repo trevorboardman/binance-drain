@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import fs from "node:fs";
+
 const TG = "https://api.trongrid.io";
 
 const USDT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
@@ -67,7 +69,8 @@ async function get(url, gap = 1100) {
       r = await fetch(url, {
         headers: {
           accept: "application/json"
-        }
+        },
+        signal: AbortSignal.timeout(3e4)
       });
       t = await r.text();
     } catch (e) {
@@ -125,6 +128,40 @@ async function account(a) {
   return accounts.get(a);
 }
 
+const CACHE = new URL("../cache/tron.json", import.meta.url);
+
+const cache = (() => {
+  try {
+    return JSON.parse(fs.readFileSync(CACHE, "utf8"));
+  } catch {
+    return {};
+  }
+})();
+
+cache.kind ||= {};
+
+cache.logs ||= {};
+
+function saveCache() {
+  fs.mkdirSync(new URL(".", CACHE), {
+    recursive: true
+  });
+  fs.writeFileSync(CACHE, JSON.stringify(cache));
+}
+
+async function kind(a) {
+  if (!cache.kind[a]) {
+    const acc = await account(a);
+    if (!acc) return null;
+    cache.kind[a] = {
+      type: acc.type,
+      account_name: acc.account_name,
+      create_time: acc.create_time
+    };
+  }
+  return cache.kind[a];
+}
+
 const isContract = acc => acc?.type === "Contract";
 
 const nameOf = acc => {
@@ -135,22 +172,39 @@ const nameOf = acc => {
   }
 };
 
-const txEvents = new Map;
-
 async function logIndex(txid, from, to, value) {
-  if (!txEvents.has(txid)) txEvents.set(txid, (await get(`${TG}/v1/transactions/${txid}/events`)).data || []);
-  const e = txEvents.get(txid).find(e => e.event_name === "Transfer" && hexToB58(e.result.from) === from && hexToB58(e.result.to) === to && String(e.result.value) === String(value));
+  if (!cache.logs[txid]) {
+    const evs = (await get(`${TG}/v1/transactions/${txid}/events`)).data || [];
+    const tr = evs.filter(e => e.event_name === "Transfer").map(e => [ hexToB58(e.result.from), hexToB58(e.result.to), String(e.result.value), e.event_index, e.block_number ]);
+    if (!tr.length) {
+      console.error(`[tron] WARNING: no Transfer log found for ${txid}`);
+      return {
+        i: "x",
+        block: null
+      };
+    }
+    cache.logs[txid] = tr;
+  }
+  const e = cache.logs[txid].find(([f, t, v]) => f === from && t === to && v === String(value));
   if (!e) console.error(`[tron] WARNING: no Transfer log found for ${txid}`);
   return e ? {
-    i: e.event_index,
-    block: e.block_number
+    i: e[3],
+    block: e[4]
   } : {
     i: "x",
     block: null
   };
 }
 
-export async function fetchChain({since = START} = {}) {
+export async function fetchChain(o) {
+  try {
+    return await read(o);
+  } finally {
+    saveCache();
+  }
+}
+
+async function read({since = START} = {}) {
   const px = await trxPrices(since);
   const priceOf = (sym, t) => STABLES[sym] ?? (sym === "TRX" || sym === "WTRX" ? px.at(t) : null);
   const nodes = new Map, events = new Map, freezes = [];
@@ -175,7 +229,7 @@ export async function fetchChain({since = START} = {}) {
     events.set(ev.key, ev);
   };
   const fresh = async a => {
-    const acc = await account(a);
+    const acc = await kind(a);
     return acc && !isContract(acc) && (acc.create_time || 0) >= since - 36e5;
   };
   for (const v of Object.keys(VICTIMS)) {
@@ -290,7 +344,11 @@ export async function fetchChain({since = START} = {}) {
     }
     for (const [to, usd] of out) {
       if (side.has(to) || VICTIMS[to]) continue;
-      const acc = await account(to);
+      if (usd < MIN_EVT) {
+        notFollowed.set(to, (notFollowed.get(to) || 0) + usd);
+        continue;
+      }
+      const acc = await kind(to);
       if (VENUES[to] || isContract(acc)) {
         addNode(to, {
           label: VENUES[to] || `Contract ${nameOf(acc) || to}`,
@@ -306,7 +364,7 @@ export async function fetchChain({since = START} = {}) {
   }
   for (const e of events.values()) for (const x of [ e.from, e.to ]) {
     if (nodes.has(x) || side.has(x) || VICTIMS[x]) continue;
-    const acc = await account(x);
+    const acc = await kind(x);
     if (VENUES[x] || isContract(acc)) addNode(x, {
       label: VENUES[x] || `Contract ${nameOf(acc) || x}`,
       plain: "Service",

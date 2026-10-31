@@ -12,7 +12,7 @@ import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 
 import { makeState, addNode, loadData, node, isSide, isAddr, isHash, addrUrl, txUrl, chainOf, CHAINS, totalsAt, tankSteps, tankLevels, assetClass, STABLE, short, sleep, ATTACKER, B14, DELEGATE, SEEDS } from "./core.js?v=12";
 
-import { makeTanks, DOT, COLS, BANDS, BAND_NAME, BAND_SHADE } from "./stage.js?v=4";
+import { makeTanks, DOT, COLS, BANDS, BAND_NAME, BAND_SHADE } from "./stage.js?v=7";
 
 import { stageModel } from "./stage-data.js?v=1";
 
@@ -2107,13 +2107,15 @@ async function boot() {
   renderHeadline();
   renderStory();
   if (glOK) {
+    const floatRT = renderer.capabilities.isWebGL2 && (renderer.extensions.has("EXT_color_buffer_float") || renderer.extensions.has("EXT_color_buffer_half_float"));
+    if (!floatRT) console.error("[tracker] this GPU cannot draw into float buffers; drawing without the glow");
     composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, {
-      type: THREE.HalfFloatType,
+      type: floatRT ? THREE.HalfFloatType : THREE.UnsignedByteType,
       samples: 4
     }));
     renderPass = new RenderPass(scene, camera);
     composer.addPass(renderPass);
-    composer.addPass(new ShaderPass({
+    if (floatRT) composer.addPass(new ShaderPass({
       uniforms: {
         tDiffuse: {
           value: null
@@ -2123,6 +2125,7 @@ async function boot() {
       fragmentShader: "uniform sampler2D tDiffuse; varying vec2 vUv; void main() { vec4 c = texture2D(tDiffuse, vUv); gl_FragColor = vec4(vec3(1.0) - exp(-c.rgb * 1.35), 1.0); }"
     }));
     bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), narrow() ? .8 : .9, .18, .28);
+    bloom.enabled = floatRT;
     composer.addPass(bloom);
     composer.addPass(new OutputPass);
     built = true;

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-import { makeLiquid } from "./liquid.js?v=2";
+import { makeLiquid } from "./liquid.js?v=3";
 
 import { stageLevels } from "./stage-data.js?v=1";
 
@@ -46,11 +46,11 @@ const ROW_NAME = [ "Binance’s wallets", "The attacker", "Wallets it was split 
 
 const INK_VERT = `\nvarying vec2 vUv;\nvoid main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 
-const INK_FRAG = `\nuniform sampler2D tInk;\nuniform vec2 uTx;\nuniform float uT;\nvarying vec2 vUv;\nvoid main() {\n  vec4 c = texture2D(tInk, vUv);\n  float a = c.a, fw = max(fwidth(a) * 0.8, 0.02), edge = smoothstep(uT - fw, uT + fw, a);\n  if (edge < 0.01) discard;\n  float hL = texture2D(tInk, vUv - vec2(uTx.x * 1.5, 0.0)).a, hR = texture2D(tInk, vUv + vec2(uTx.x * 1.5, 0.0)).a;\n  float hB = texture2D(tInk, vUv - vec2(0.0, uTx.y * 1.5)).a, hT = texture2D(tInk, vUv + vec2(0.0, uTx.y * 1.5)).a;\n  float thick = smoothstep(uT, uT + 1.3, a);\n  vec3 n = normalize(vec3(-(hR - hL) * 1.4, -(hT - hB) * 1.4, 0.25 + thick * 0.75));\n  vec3 col = c.rgb / max(a, 1e-4), V = vec3(0.0, 0.0, 1.0), Ld = normalize(vec3(-0.4, 0.65, 0.65));\n  vec3 base = mix(col * 1.05, col * 0.5, thick);\n  float diff = 0.6 + 0.4 * max(dot(n, Ld), 0.0);\n  vec3 R = reflect(-V, n);\n  float spec = pow(max(dot(R, Ld), 0.0), 70.0) * 1.4;\n  float boxes = smoothstep(0.62, 0.95, R.y) * 0.5 + smoothstep(0.86, 0.985, abs(R.x)) * (R.x < 0.0 ? 0.9 : 0.5);\n  float fres = pow(1.0 - max(n.z, 0.0), 2.0);\n  vec3 o = base * diff + vec3(1.0, 0.97, 0.92) * spec + vec3(0.85, 0.9, 1.0) * boxes * 0.18 + col * fres * 0.15;\n  gl_FragColor = vec4(o, edge * 0.97);\n}`;
+const INK_FRAG = `\nuniform sampler2D tInk;\nuniform float uInkK;\nvec4 inkAt(vec2 p) { return texture2D(tInk, p) * uInkK; }\nuniform vec2 uTx;\nuniform float uT;\nvarying vec2 vUv;\nvoid main() {\n  vec4 c = inkAt(vUv);\n  float a = c.a, fw = max(fwidth(a) * 0.8, 0.02), edge = smoothstep(uT - fw, uT + fw, a);\n  if (edge < 0.01) discard;\n  float hL = inkAt(vUv - vec2(uTx.x * 1.5, 0.0)).a, hR = inkAt(vUv + vec2(uTx.x * 1.5, 0.0)).a;\n  float hB = inkAt(vUv - vec2(0.0, uTx.y * 1.5)).a, hT = inkAt(vUv + vec2(0.0, uTx.y * 1.5)).a;\n  float thick = smoothstep(uT, uT + 1.3, a);\n  vec3 n = normalize(vec3(-(hR - hL) * 1.4, -(hT - hB) * 1.4, 0.25 + thick * 0.75));\n  vec3 col = c.rgb / max(a, 1e-4), V = vec3(0.0, 0.0, 1.0), Ld = normalize(vec3(-0.4, 0.65, 0.65));\n  vec3 base = mix(col * 1.05, col * 0.5, thick);\n  float diff = 0.6 + 0.4 * max(dot(n, Ld), 0.0);\n  vec3 R = reflect(-V, n);\n  float spec = pow(max(dot(R, Ld), 0.0), 70.0) * 1.4;\n  float boxes = smoothstep(0.62, 0.95, R.y) * 0.5 + smoothstep(0.86, 0.985, abs(R.x)) * (R.x < 0.0 ? 0.9 : 0.5);\n  float fres = pow(1.0 - max(n.z, 0.0), 2.0);\n  vec3 o = base * diff + vec3(1.0, 0.97, 0.92) * spec + vec3(0.85, 0.9, 1.0) * boxes * 0.18 + col * fres * 0.15;\n  gl_FragColor = vec4(o, edge * 0.97);\n}`;
 
 const LIQ_VERT = `\nuniform float uTime, uAmp, uWave, uH, uMax, uProfS;\nuniform float uProf[16];\nuniform vec2 uSlope;\nvarying vec3 vW, vN, vL;\nfloat prof(float x) {\n  float f = clamp((x * 0.5 + 0.5) * 16.0 - 0.5, 0.0, 15.0);\n  int i = int(floor(f));\n  return mix(uProf[i], uProf[min(i + 1, 15)], f - float(i)) * uProfS;\n}\nvoid main() {\n  vec3 p = position;\n  float lvl = clamp(uH + dot(uSlope, p.xz) + prof(p.x), 0.0, uMax);\n  if (uWave < 0.5) p.y = position.y * lvl;\n  else {\n    float rr = length(p.xz);\n    p.y = lvl + uAmp * (sin(rr * 11.0 - uTime * 5.0) * 0.55 + sin(p.x * 4.0 + uTime * 1.7) * 0.25 + sin(p.z * 5.0 - uTime * 2.1) * 0.2) * smoothstep(1.0, 0.6, rr) * 0.05;\n  }\n  vL = p;\n  vec4 w = modelMatrix * vec4(p, 1.0);\n  vW = w.xyz;\n  vN = normalize(mat3(modelMatrix) * normal);\n  gl_Position = projectionMatrix * viewMatrix * w;\n}`;
 
-const LIQ_FRAG = `\nuniform vec3 uCol, uC0, uC1, uC2;\nuniform float uTime, uBase, uTop, uWave, uRefl, uFade, uGlow, uInkOn, uL1, uL2, uFloor, uIceTop;\nuniform sampler2D tInk;\nuniform vec4 uInkRect;\nuniform vec2 uInkTx;\nvarying vec3 vW, vN, vL;\nvoid main() {\n  vec3 W = vW;\n  if (uRefl > 0.5) W.y = 2.0 * uFloor - W.y;\n  vec3 V = normalize(cameraPosition - vW);\n  vec3 N = uWave > 0.5 ? normalize(cross(dFdx(vW), dFdy(vW))) : normalize(vN);\n  if (dot(N, V) < 0.0) N = -N;\n  float ndv = max(dot(N, V), 0.0), fres = pow(1.0 - ndv, 3.0);\n  float h = clamp((W.y - uBase) / max(uTop - uBase, 1e-3), 0.0, 1.0);\n  float y = uWave > 0.5 ? 1e6 : vL.y, bw = (uTop - uBase) * 0.012;\n  float isIce = uWave > 0.5 ? uIceTop : 1.0 - smoothstep(uL1 - bw, uL1 + bw, y);\n  vec3 lc = mix(uC0, mix(uC1, uC2, smoothstep(uL2 - bw, uL2 + bw, y)), smoothstep(uL1 - bw, uL1 + bw, y));\n  if (uWave > 0.5) lc = uCol;\n  vec3 c = mix(lc * 0.2, lc * 0.72, pow(h, 1.25));\n  float sw = sin(W.y * 5.0 + uTime * 0.55 + sin(W.x * 2.6 + uTime * 0.35) * 1.6) * 0.5 + 0.5;\n  c *= 0.82 + 0.36 * mix(sw, 0.5, isIce);\n  if (uInkOn > 0.5 && uRefl < 0.5 && isIce < 0.5) {\n    vec2 iu = (vW.xy - uInkRect.xy) / (uInkRect.zw - uInkRect.xy);\n    vec4 d = texture2D(tInk, iu);\n    float ia = 1.0 - exp(-d.a * 2.2);\n    if (ia > 0.003) {\n      float gx = texture2D(tInk, iu + vec2(uInkTx.x, 0.0)).a - texture2D(tInk, iu - vec2(uInkTx.x, 0.0)).a;\n      float gy = texture2D(tInk, iu + vec2(0.0, uInkTx.y)).a - texture2D(tInk, iu - vec2(0.0, uInkTx.y)).a;\n      vec3 ic = d.rgb / max(d.a, 1e-4);\n      float lit = 0.75 + 0.6 * clamp(-gx * 3.0 + gy * 3.0, -0.6, 0.8);\n      float other = clamp(length(ic - lc) * 1.8, 0.0, 1.0);\n      c = mix(c, mix(ic * 0.25, ic * 0.8, pow(h, 1.1)) * lit * (0.85 + 0.3 * sw), ia * 0.7 * other);\n    }\n  }\n\n  if (isIce > 0.01) {\n    float cr = abs(sin(W.x * 31.0 + sin(W.y * 17.0) * 2.2)) * abs(sin(W.y * 27.0 - W.x * 9.0 + sin(W.x * 13.0)));\n    vec3 ice = mix(lc * 0.45, vec3(0.78, 0.9, 1.0), 0.32 + 0.25 * h) + vec3(0.7, 0.85, 1.0) * pow(1.0 - cr, 18.0) * 0.45;\n    c = mix(c, ice, isIce);\n  }\n  vec3 R = reflect(-V, N);\n  float boxes = smoothstep(0.62, 0.95, R.y) * 0.35 + smoothstep(0.86, 0.985, abs(R.x)) * (R.x < 0.0 ? 0.75 : 0.45);\n  c += vec3(0.85, 0.9, 1.0) * boxes * (0.35 + 0.25 * isIce);\n  c += lc * fres * (0.7 + 0.5 * uGlow);\n  if (uWave > 0.5) {\n    float rr = length(vL.xz);\n    c = mix(c, lc * 1.05, 0.55 * (1.0 - uIceTop * 0.5));\n    c += mix(lc, vec3(1.0), 0.35) * smoothstep(0.82, 0.99, rr) * (0.9 + uGlow);\n  }\n  float a = 1.0;\n  if (uRefl > 0.5) a = 0.11 * exp((vW.y - uFloor) / uFade);\n  gl_FragColor = vec4(c, a);\n}`;
+const LIQ_FRAG = `\nuniform vec3 uCol, uC0, uC1, uC2;\nuniform float uTime, uBase, uTop, uWave, uRefl, uFade, uGlow, uInkOn, uL1, uL2, uFloor, uIceTop;\nuniform sampler2D tInk;\nuniform float uInkK;\nvec4 inkAt(vec2 p) { return texture2D(tInk, p) * uInkK; }\nuniform vec4 uInkRect;\nuniform vec2 uInkTx;\nvarying vec3 vW, vN, vL;\nvoid main() {\n  vec3 W = vW;\n  if (uRefl > 0.5) W.y = 2.0 * uFloor - W.y;\n  vec3 V = normalize(cameraPosition - vW);\n  vec3 N = uWave > 0.5 ? normalize(cross(dFdx(vW), dFdy(vW))) : normalize(vN);\n  if (dot(N, V) < 0.0) N = -N;\n  float ndv = max(dot(N, V), 0.0), fres = pow(1.0 - ndv, 3.0);\n  float h = clamp((W.y - uBase) / max(uTop - uBase, 1e-3), 0.0, 1.0);\n  float y = uWave > 0.5 ? 1e6 : vL.y, bw = (uTop - uBase) * 0.012;\n  float isIce = uWave > 0.5 ? uIceTop : 1.0 - smoothstep(uL1 - bw, uL1 + bw, y);\n  vec3 lc = mix(uC0, mix(uC1, uC2, smoothstep(uL2 - bw, uL2 + bw, y)), smoothstep(uL1 - bw, uL1 + bw, y));\n  if (uWave > 0.5) lc = uCol;\n  vec3 c = mix(lc * 0.2, lc * 0.72, pow(h, 1.25));\n  float sw = sin(W.y * 5.0 + uTime * 0.55 + sin(W.x * 2.6 + uTime * 0.35) * 1.6) * 0.5 + 0.5;\n  c *= 0.82 + 0.36 * mix(sw, 0.5, isIce);\n  if (uInkOn > 0.5 && uRefl < 0.5 && isIce < 0.5) {\n    vec2 iu = (vW.xy - uInkRect.xy) / (uInkRect.zw - uInkRect.xy);\n    vec4 d = inkAt(iu);\n    float ia = 1.0 - exp(-d.a * 2.2);\n    if (ia > 0.003) {\n      float gx = inkAt(iu + vec2(uInkTx.x, 0.0)).a - inkAt(iu - vec2(uInkTx.x, 0.0)).a;\n      float gy = inkAt(iu + vec2(0.0, uInkTx.y)).a - inkAt(iu - vec2(0.0, uInkTx.y)).a;\n      vec3 ic = d.rgb / max(d.a, 1e-4);\n      float lit = 0.75 + 0.6 * clamp(-gx * 3.0 + gy * 3.0, -0.6, 0.8);\n      float other = clamp(length(ic - lc) * 1.8, 0.0, 1.0);\n      c = mix(c, mix(ic * 0.25, ic * 0.8, pow(h, 1.1)) * lit * (0.85 + 0.3 * sw), ia * 0.7 * other);\n    }\n  }\n\n  if (isIce > 0.01) {\n    float cr = abs(sin(W.x * 31.0 + sin(W.y * 17.0) * 2.2)) * abs(sin(W.y * 27.0 - W.x * 9.0 + sin(W.x * 13.0)));\n    vec3 ice = mix(lc * 0.45, vec3(0.78, 0.9, 1.0), 0.32 + 0.25 * h) + vec3(0.7, 0.85, 1.0) * pow(1.0 - cr, 18.0) * 0.45;\n    c = mix(c, ice, isIce);\n  }\n  vec3 R = reflect(-V, N);\n  float boxes = smoothstep(0.62, 0.95, R.y) * 0.35 + smoothstep(0.86, 0.985, abs(R.x)) * (R.x < 0.0 ? 0.75 : 0.45);\n  c += vec3(0.85, 0.9, 1.0) * boxes * (0.35 + 0.25 * isIce);\n  c += lc * fres * (0.7 + 0.5 * uGlow);\n  if (uWave > 0.5) {\n    float rr = length(vL.xz);\n    c = mix(c, lc * 1.05, 0.55 * (1.0 - uIceTop * 0.5));\n    c += mix(lc, vec3(1.0), 0.35) * smoothstep(0.82, 0.99, rr) * (0.9 + uGlow);\n  }\n  float a = 1.0;\n  if (uRefl > 0.5) a = 0.11 * exp((vW.y - uFloor) / uFade);\n  gl_FragColor = vec4(c, a);\n}`;
 
 const PIPE_VERT = `\nvarying vec3 vW, vN;\nvoid main() {\n  vec4 w = modelMatrix * vec4(position, 1.0);\n  vW = w.xyz;\n  vN = normalize(mat3(modelMatrix) * normal);\n  gl_Position = projectionMatrix * viewMatrix * w;\n}`;
 
@@ -121,7 +121,8 @@ export function makeTanks({reduced, renderer}) {
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
   })();
-  const glassMat = new THREE.MeshPhysicalMaterial({
+  const floatRT = !!renderer && (renderer.extensions.has("EXT_color_buffer_float") || renderer.extensions.has("EXT_color_buffer_half_float"));
+  const glassMat = floatRT ? new THREE.MeshPhysicalMaterial({
     color: 16777215,
     metalness: 0,
     roughness: .03,
@@ -133,6 +134,11 @@ export function makeTanks({reduced, renderer}) {
     attenuationColor: new THREE.Color(15002879),
     attenuationDistance: 8,
     depthWrite: false
+  }) : new THREE.ShaderMaterial({
+    vertexShader: PIPE_VERT,
+    fragmentShader: PIPE_FRAG,
+    transparent: true,
+    depthWrite: false
   });
   const clock = {
     value: 0
@@ -143,6 +149,9 @@ export function makeTanks({reduced, renderer}) {
     },
     tInk: {
       value: null
+    },
+    uInkK: {
+      value: 1
     },
     uInkRect: {
       value: new THREE.Vector4(0, 0, 1, 1)
@@ -401,11 +410,13 @@ export function makeTanks({reduced, renderer}) {
   dAlloc(1);
   dGeo.setDrawRange(0, 0);
   const liq = flDead ? null : makeLiquid(renderer, dGeo);
+  if (liq) inkShared.uInkK.value = 1 / liq.gain;
   const inkPlane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).translate(.5, .5, 0), new THREE.ShaderMaterial({
     vertexShader: INK_VERT,
     fragmentShader: INK_FRAG,
     uniforms: {
       tInk: inkShared.tInk,
+      uInkK: inkShared.uInkK,
       uTx: inkShared.uInkTx,
       uT: {
         value: .6
@@ -728,9 +739,9 @@ export function makeTanks({reduced, renderer}) {
   function fluidSetup() {
     if (flDead || !G || !G.geo) return;
     if (!fl) {
-      const ok = renderer.capabilities.isWebGL2 && (renderer.extensions.has("EXT_color_buffer_float") || renderer.extensions.has("EXT_color_buffer_half_float"));
+      const ok = renderer.capabilities.isWebGL2;
       if (!ok || typeof Worker === "undefined") {
-        fluidOff(ok ? "no workers" : "no float targets");
+        fluidOff(ok ? "no workers" : "no WebGL2");
         return;
       }
       let w;

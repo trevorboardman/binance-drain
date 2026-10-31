@@ -8,11 +8,13 @@ const BLUR_FS = `\nuniform sampler2D uT;\nuniform vec2 uD;\nvarying vec2 vUv;\nv
 
 const SPLAT_VS = `\nuniform vec4 uRect;\nuniform float uR, uSize;\nattribute vec3 aCol;\nvarying vec3 vC;\nvoid main() {\n  vec2 w = position.xy * uR, uv = (w - uRect.xy) / (uRect.zw - uRect.xy);\n  vC = aCol;\n  gl_PointSize = uSize;\n  gl_Position = vec4(uv * 2.0 - 1.0, 0.0, 1.0);\n}`;
 
-const SPLAT_FS = `\nvarying vec3 vC;\nvoid main() { vec2 p = gl_PointCoord * 2.0 - 1.0; float r2 = dot(p, p); if (r2 > 1.0) discard; float w = (1.0 - r2) * (1.0 - r2); gl_FragColor = vec4(vC * w, w); }`;
+const SPLAT_FS = `\nuniform float uGain;\nvarying vec3 vC;\nvoid main() { vec2 p = gl_PointCoord * 2.0 - 1.0; float r2 = dot(p, p); if (r2 > 1.0) discard; float w = (1.0 - r2) * (1.0 - r2); gl_FragColor = vec4(vC * w, w) * uGain; }`;
 
 export function makeLiquid(renderer, dropGeo) {
+  const float = renderer.extensions.has("EXT_color_buffer_float") || renderer.extensions.has("EXT_color_buffer_half_float");
+  const gain = float ? 1 : .25;
   const rt = (w, h) => new THREE.WebGLRenderTarget(w, h, {
-    type: THREE.HalfFloatType,
+    type: float ? THREE.HalfFloatType : THREE.UnsignedByteType,
     minFilter: THREE.LinearFilter,
     magFilter: THREE.LinearFilter,
     depthBuffer: false,
@@ -46,6 +48,9 @@ export function makeLiquid(renderer, dropGeo) {
     },
     uSize: {
       value: 4
+    },
+    uGain: {
+      value: gain
     }
   };
   const pts = new THREE.Points(dropGeo, new THREE.ShaderMaterial({
@@ -121,6 +126,8 @@ export function makeLiquid(renderer, dropGeo) {
   return {
     layout,
     draw,
+    gain,
+    float,
     get texture() {
       return S ? S.a.texture : null;
     },
