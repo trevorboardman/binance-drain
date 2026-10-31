@@ -1616,7 +1616,16 @@ function showTip(n, ev) {
 
 let lastNow = performance.now(), built = false;
 
+const FRAME_MS = Q.has("fps") ? +Q.get("fps") > 0 ? 1e3 / +Q.get("fps") : 0 : 1e3 / 60;
+
+let frameDue = 0;
+
 function frame(now) {
+  if (now < frameDue - 1) {
+    requestAnimationFrame(frame);
+    return;
+  }
+  frameDue = Math.max(frameDue + FRAME_MS, now);
   const dt = Math.min(.1, (now - lastNow) / 1e3);
   lastNow = now;
   if (playing && !live) {
@@ -2151,7 +2160,7 @@ async function boot() {
         }
       },
       vertexShader: "varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
-      fragmentShader: "uniform sampler2D tDiffuse; varying vec2 vUv; void main() { vec4 c = texture2D(tDiffuse, vUv); gl_FragColor = vec4(vec3(1.0) - exp(-c.rgb * 1.35), 1.0); }"
+      fragmentShader: "uniform sampler2D tDiffuse; varying vec2 vUv; void main() { vec4 c = texture2D(tDiffuse, vUv); c.rgb = clamp(c.rgb, 0.0, 6e4); gl_FragColor = vec4(vec3(1.0) - exp(-c.rgb * 1.35), 1.0); }"
     }));
     bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), narrow() ? .8 : .9, .18, .28);
     bloom.enabled = floatRT;
