@@ -20,9 +20,34 @@ const Q = new URLSearchParams(location.search);
 
 const OG = Q.has("og");
 
-const DIRECT = Q.has("direct");
+let DIRECT = Q.has("direct");
 
-const draw = () => DIRECT ? renderer.render(renderPass.scene, renderPass.camera) : composer.render();
+let drawn = 0, checked = DIRECT;
+
+function lit() {
+  const gl = renderer.getContext(), w = gl.drawingBufferWidth, h = gl.drawingBufferHeight, px = new Uint8Array(w * h * 4);
+  gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  let n = 0;
+  for (let i = 0; i < px.length; i += 4 * 7) if (Math.max(px[i], px[i + 1], px[i + 2]) > 40) n++;
+  return n;
+}
+
+function draw() {
+  if (DIRECT) {
+    renderer.render(renderPass.scene, renderPass.camera);
+    return;
+  }
+  composer.render();
+  if (checked || ++drawn < 60) return;
+  checked = true;
+  const viaComposer = Q.has("fakeblack") ? 0 : lit();
+  renderer.render(renderPass.scene, renderPass.camera);
+  const viaDirect = lit();
+  if (viaDirect > 200 && viaComposer < viaDirect * .1) {
+    DIRECT = true;
+    console.error(`[tracker] the glow passes drew a dark picture on this GPU (${viaComposer} lit samples against ${viaDirect} drawn direct); drawing without them`);
+  } else console.log(`[tracker] glow check: ${viaComposer} lit samples, ${viaDirect} direct`);
+}
 
 if (OG) document.body.classList.add("og");
 
