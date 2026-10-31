@@ -32,7 +32,7 @@ if (new URLSearchParams(location.search).has("diag")) (() => {
   info.push(navigator.userAgent);
   addEventListener("DOMContentLoaded", () => {
     const box = document.createElement("pre");
-    box.style.cssText = "box-sizing:border-box;position:fixed;left:6px;right:6px;bottom:6px;max-height:55vh;overflow:auto;z-index:99999;margin:0;padding:8px;background:#fff;color:#000;font:11px/1.35 monospace;white-space:pre-wrap;word-break:break-all;border:2px solid #f00";
+    box.style.cssText = "box-sizing:border-box;position:fixed;left:6px;width:calc(100vw - 12px);overflow-wrap:anywhere;bottom:6px;max-height:55vh;overflow:auto;z-index:99999;margin:0;padding:8px;background:#fff;color:#000;font:11px/1.35 monospace;white-space:pre-wrap;word-break:break-all;border:2px solid #f00";
     document.body.appendChild(box);
     const NL = String.fromCharCode(10);
     const draw = () => {
