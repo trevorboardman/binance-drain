@@ -167,3 +167,5 @@ try {
 } catch (e) {
   console.error("market failed, kept the last market.json: " + e.message);
 }
+
+process.exit(0);
